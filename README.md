@@ -18,8 +18,21 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   avanzar de fase y al guardar.
 - Calcula automáticamente el **precio** según los gramos de material.
 - Permite **buscar** (por ID, carné, operador o cuenta) y **filtrar por fase**.
-- En las fases de Revisión e Impresión ordena por **prioridad de impresión**.
+- En las fases de Revisión e Impresión ordena por **prioridad de impresión**
+  (Curso y Evento → Asistencia → Personal; a igual prioridad, por fecha de recepción).
 - Registra una lista dinámica de **fallos de impresión**.
+
+### El formulario de una boleta
+
+- Cada fase es una **barra de color** (los mismos colores de la boleta impresa)
+  que se despliega u oculta al hacer clic. La barra muestra **✓** cuando la fase
+  ya tiene operador y **● FASE ACTUAL** en la fase en curso.
+- Las opciones (uso, material, resolución, relleno, impresora...) se marcan
+  como en el papel, con casillas.
+- La barra inferior tiene **Anterior / Siguiente** (valida los campos
+  obligatorios antes de avanzar), el selector de **Fase Actual**,
+  **Expandir todo / Contraer todo** y **Guardar Cambios**.
+- Al abrir una boleta existente se despliega directamente su fase actual.
 
 ### Las 7 fases
 
@@ -41,6 +54,7 @@ archivo tiene una única responsabilidad y las capas no se mezclan.
 ```
 Boletas Corte Laser/
 ├── README.md                  # Este archivo
+├── requirements.txt           # Dependencias de Python
 └── src/
     ├── main.py                # Punto de entrada (arranca la app)
     ├── boletas/               # Paquete de la aplicación
@@ -141,8 +155,9 @@ No se toca el código de las otras fases ni el de `boleta_form.py`.
 Requisitos: **Python 3** con las dependencias instaladas.
 
 ```bash
-pip install customtkinter pandas openpyxl
-cd "Boletas Corte Laser/src"
+cd "Boletas Corte Laser"
+pip install -r requirements.txt
+cd src
 python main.py
 ```
 
@@ -153,7 +168,7 @@ que se ejecuta la aplicación.
 
 ## 📦 Empaquetar como ejecutable (.exe)
 
-El proyecto incluye `main.spec` para [PyInstaller](https://pyinstaller.org/):
+Con [PyInstaller](https://pyinstaller.org/):
 
 ```bash
 cd "Boletas Corte Laser/src"
@@ -163,7 +178,10 @@ python -m PyInstaller --onefile --windowed --strip --noupx --collect-data custom
 El ejecutable queda en `src/dist/`. PyInstaller detecta automáticamente los
 módulos del paquete `boletas/` al seguir los imports desde `main.py`.
 `--collect-data customtkinter` incluye los archivos de temas que CustomTkinter
-necesita en tiempo de ejecución.
+necesita en tiempo de ejecución; sin esa opción el `.exe` no abre.
+
+> El comando regenera `main.spec`. No compiles con un `main.spec` antiguo
+> (`pyinstaller main.spec`) si no incluye los datos de CustomTkinter.
 
 ---
 
@@ -173,7 +191,9 @@ necesita en tiempo de ejecución.
 |-------------------------------------------|-----------------------------------------------------|
 | Añadir/renombrar una fase                 | `config.py` → `FASES` (y `REQUIRED_FIELDS`)         |
 | Cambiar el precio por gramo               | `config.py` → `PRECIO_POR_GRAMO`                    |
-| Añadir una opción de material/uso         | `config.py` → `MATERIAL_OPTIONS` / `USO_OPTIONS`    |
+| Añadir una opción de material             | `config.py` → `MATERIAL_OPTIONS`                    |
+| Añadir una opción de uso                  | `config.py` → `USO_OPTIONS`, y con **el mismo texto** en `PRIORIDAD_USO` (y en `USO_CON_DETALLE` si pide detalle) |
+| Cambiar la prioridad de impresión         | `config.py` → `PRIORIDAD_USO`                       |
 | Cambiar qué campos son obligatorios       | `config.py` → `REQUIRED_FIELDS`                     |
 | Cambiar cómo se guardan/leen los datos    | `repository.py`                                     |
 | Cambiar/añadir una **fase** del formulario| `ui/phases/faseN_*.py` (+ registro y `config.py`)   |
