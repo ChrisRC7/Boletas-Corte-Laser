@@ -14,3 +14,5 @@ Notas de lo que quiere Aguirre:
 7. Quitar la opcion de poder eliminar los fallos. Esto esta en la fase 3 (Impresión), en la parte de detección de fallos.
 
 8. Cambiar el nombre de la fase 7 de cancelada por cancelación
+
+9. Adicionalmente, se podría considerar una funcionalidad de edición para los valores que podrían cambiar en el tiempo, por ejemplo: Material, Resolución, Relleno, Impresora, pero eso podría ser solo una aplicación paralela para la configuración de la "boleta digital" mediante un archivo.
