@@ -19,6 +19,8 @@ from .boleta_form import BoletaForm
 class App(ctk.CTk):
     """Ventana principal de la aplicación de Control de Impresiones."""
 
+    FILTRO_TODOS = "Todos"
+
     def __init__(self):
         theme.setup()
         super().__init__()
@@ -93,12 +95,20 @@ class App(ctk.CTk):
         filter_frame.pack(fill="x", padx=12, pady=4)
         ctk.CTkLabel(filter_frame, text="Filtrar por Fase:", font=theme.font(12, "bold"),
                      text_color=theme.TEXT).pack(side="left", padx=(0, 8))
-        for fase, color in zip(config.FASES, theme.PHASE_COLORS):
-            ctk.CTkButton(
+        # El filtro activo conserva su color completo y lleva "✔"; los demás se ven atenuados.
+        self.filter_buttons = {}
+        opciones = [(self.FILTRO_TODOS, theme.NEUTRAL)] + list(zip(config.FASES, theme.PHASE_COLORS))
+        for fase, color in opciones:
+            if fase == self.FILTRO_TODOS:
+                command = self.show_all_boletas
+            else:
+                command = lambda f=fase: self.filter_boletas(f)
+            button = ctk.CTkButton(
                 filter_frame, text=fase, width=0, height=30, font=theme.font(12),
-                fg_color=color, hover_color=theme.darken(color),
-                command=lambda f=fase: self.filter_boletas(f),
-            ).pack(side="left", padx=2)
+                fg_color=color, hover_color=theme.darken(color), command=command,
+            )
+            button.pack(side="left", padx=2)
+            self.filter_buttons[fase] = (button, color)
 
         # Tabla
         self._style_treeview()
@@ -156,14 +166,28 @@ class App(ctk.CTk):
         if not term:
             messagebox.showwarning("Búsqueda Vacía", "Por favor ingrese un término para buscar.")
             return
+        self._set_active_filter(None)
         self.refresh_treeview(self.repo.search(field, term))
 
     def show_all_boletas(self):
         self.search_term.set("")
+        self._set_active_filter(self.FILTRO_TODOS)
         self.refresh_treeview(self.repo.all())
 
     def filter_boletas(self, fase):
+        self._set_active_filter(fase)
         self.refresh_treeview(self.repo.filter_by_phase(fase))
+
+    def _set_active_filter(self, fase):
+        """Resalta el botón del filtro activo (None = ninguno, p. ej. tras una búsqueda)."""
+        for nombre, (button, color) in self.filter_buttons.items():
+            activo = nombre == fase
+            button.configure(
+                text=f"✔ {nombre}" if activo else nombre,
+                fg_color=color if activo else theme.lighten(color, 0.6),
+                text_color="white" if activo else theme.TEXT,
+                font=theme.font(12, "bold") if activo else theme.font(12),
+            )
 
     # --- Acciones sobre una boleta ----------------------------------------
     def open_new_boleta_window(self):
