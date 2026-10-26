@@ -179,12 +179,33 @@ class PhaseSection:
         return frame
 
     def operator_row(self):
-        """Fila estándar de cada fase: OPERADOR | FECHA  HORA  [Hoy]."""
+        """Fila estándar de cada fase: OPERADOR | FECHA  HORA  [Hoy].
+
+        Si en OPERADOR se escribe un correo o un carné, se sustituye por el
+        nombre completo del estudiante según el Active Directory.
+        """
         n = self.index + 1
+        key = f'F{n}_Operador'
         row = self.new_row()
-        self.field(row, 0, f'F{n}_Operador', "OPERADOR")
+        operador = self.field(row, 0, key, "OPERADOR", "Nombre, correo o carné")
+        operador.bind("<FocusOut>", lambda _e: self._resolver_operador(key))
+        operador.bind("<Return>", lambda _e: self._resolver_operador(key))
         self.datetime_fields(row, 2, f'F{n}_Fecha', f'F{n}_Hora')
         return row
+
+    def _resolver_operador(self, key):
+        texto = self.vars[key].get().strip()
+        usuarios = self.form.parent_app.usuarios
+        campo, _valor = usuarios.identificar(texto)
+        if campo is None:
+            return  # Ya es un nombre: no hay nada que buscar.
+
+        def aplicar(nombre):
+            # Solo se sustituye si el operador no cambió el campo mientras tanto.
+            if nombre and self.vars[key].get().strip() == texto:
+                self.vars[key].set(nombre)
+
+        self.form.en_segundo_plano(lambda: usuarios.nombre_operador(texto), aplicar)
 
     def datetime_fields(self, row, col, fecha_key, hora_key):
         """Campos de Fecha y Hora con un botón 'Hoy'."""
@@ -197,6 +218,31 @@ class PhaseSection:
             cell, text="Hoy", width=50, fg_color=self.color, hover_color=self.hover_color,
             command=lambda: self.form.set_datetime(fecha_key, hora_key),
         ).pack(side="left", padx=(8, 0))
+
+    def text_area(self, row, key, text, hint=None, height=110):
+        """Etiqueta + cuadro de texto multilínea que ocupa el resto de la fila.
+
+        El contenido se sincroniza en ambos sentidos con `vars[key]`, así se
+        guarda y se carga como cualquier otro campo.
+        """
+        self.label(row, 0, text, hint)
+        var = self.vars[key] = tk.StringVar()
+        box = ctk.CTkTextbox(self.body, height=height, wrap="word", border_width=1,
+                             border_color=theme.SEPARATOR, font=theme.font(12))
+        box.grid(row=row, column=1, columnspan=3, sticky="ew", padx=(0, PAD_X), pady=PAD_Y)
+
+        def desde_cuadro(_event=None):
+            var.set(box.get("1.0", "end-1c"))
+
+        def desde_variable(*_):
+            if box.get("1.0", "end-1c") != var.get():
+                box.delete("1.0", "end")
+                box.insert("1.0", var.get())
+
+        box.bind("<KeyRelease>", desde_cuadro)
+        box.bind("<FocusOut>", desde_cuadro)
+        var.trace_add('write', desde_variable)
+        return box
 
     def radio_group(self, parent, key, options, per_row=None, command=None, default="", item_width=70):
         """Grupo de opciones (como las casillas de la boleta) ligado a `vars[key]`."""

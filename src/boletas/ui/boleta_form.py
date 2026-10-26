@@ -9,6 +9,7 @@ una clase independiente en `ui/phases/` (ver ese paquete). Para cambiar o añadi
 una fase no se toca este archivo, solo el de la fase correspondiente.
 """
 
+import threading
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
@@ -117,6 +118,26 @@ class BoletaForm(ctk.CTkToplevel):
             self.vars[fecha_key].set(now.strftime(config.FORMATO_FECHA))
         if hora_key in self.vars:
             self.vars[hora_key].set(now.strftime(config.FORMATO_HORA))
+
+    def en_segundo_plano(self, tarea, al_terminar):
+        """Ejecuta `tarea()` en un hilo y luego `al_terminar(resultado)` en la UI.
+
+        Sirve para consultas lentas (p. ej. el AD) sin congelar la ventana. Si
+        la ventana se cerró antes de terminar, el resultado se descarta.
+        """
+        resultado = {}
+        hilo = threading.Thread(target=lambda: resultado.setdefault('valor', tarea()), daemon=True)
+        hilo.start()
+
+        def revisar():
+            if not self.winfo_exists():
+                return
+            if hilo.is_alive():
+                self.after(100, revisar)
+            else:
+                al_terminar(resultado.get('valor'))
+
+        self.after(100, revisar)
 
     def current_index(self):
         """Índice (0..6) de la fase marcada como actual."""

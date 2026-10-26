@@ -11,7 +11,9 @@ from tkinter import ttk, messagebox
 import customtkinter as ctk
 
 from .. import config
+from ..directorio_ad import DirectorioAD
 from ..repository import BoletaRepository
+from ..services import UsuarioService
 from . import theme
 from .boleta_form import BoletaForm
 
@@ -30,6 +32,7 @@ class App(ctk.CTk):
 
         self.repo = BoletaRepository()
         self.repo.load()
+        self.usuarios = UsuarioService(self.repo, DirectorioAD())
 
         self.create_widgets()
         self.show_all_boletas()

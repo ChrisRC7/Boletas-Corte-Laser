@@ -11,6 +11,15 @@ la interfaz: basta con editar este archivo.
 # directorio de trabajo desde donde se ejecuta la aplicación.
 EXCEL_FILE = "control_impresiones.xlsx"
 
+# --- Active Directory (solo lectura) --------------------------------------
+# Dominio de los correos institucionales: en el AD solo se guarda el usuario.
+AD_DOMINIO_CORREO = "@estudiantec.cr"
+# Tiempo máximo de espera de una búsqueda en el AD.
+AD_TIMEOUT_SEGUNDOS = 8
+
+# Datos del usuario (estudiante) que se autocompletan en la Recepción.
+CAMPOS_DATOS_USUARIO = ['Nombre_Usuario', 'Cuenta', 'Carrera', 'Carné', 'Teléfono']
+
 # Precio cobrado por cada gramo de material usado (en colones).
 PRECIO_POR_GRAMO = 50
 
@@ -25,8 +34,14 @@ FASES = [
     "4. Despegado de Piezas",
     "5. Entrega de Piezas",
     "6. Reimpresión",
-    "7. Cancelada",
+    "7. Cancelación",
 ]
+
+# Nombres viejos de fases -> nombre actual. El repositorio los migra al cargar
+# el Excel, porque `Fase Actual` guarda el nombre de la fase tal cual.
+FASES_RENOMBRADAS = {
+    "7. Cancelada": "7. Cancelación",
+}
 
 # Fases en las que aplica el ordenamiento por prioridad de impresión.
 FASES_CON_PRIORIDAD = ["2. Revisión y Preparación", "3. Impresión"]
@@ -47,21 +62,21 @@ PRIORIDAD_POR_DEFECTO = 4
 COLUMNAS = [
     'ID Boleta', 'Fase Actual',
     # Fase 1
-    'F1_Operador', 'F1_Fecha', 'F1_Hora', 'Cuenta', 'Carrera', 'Carné', 'Teléfono',
+    'F1_Operador', 'F1_Fecha', 'F1_Hora', 'Nombre_Usuario', 'Cuenta', 'Carrera', 'Carné', 'Teléfono',
     'Uso', 'Uso_Detalle', 'Nombre_Pieza', 'Observaciones_Usuario', 'Cantidad_Copias',
     'Material', 'Material_Otro_Detalle', 'Resolucion', 'Relleno', 'Autoriza_Recoger',
     # Fase 2
     'F2_Operador', 'F2_Fecha', 'F2_Hora', 'Uso_Material_g', 'Tiempo_Impresion_HHMM', 'Precio',
     # Fase 3
     'F3_Operador', 'F3_Fecha', 'F3_Hora', 'Confirmacion_Usuario', 'Impresora_Num', 'F3_Envio_Correo',
-    'Fallo_Lista',
+    'Fallo_Lista', 'F3_Notas',
     # Fase 4 (Despegado)
     'F4_Operador', 'F4_Fecha', 'F4_Hora', 'Observaciones_Despegado', 'F4_Imprimio_Correctamente', 'F4_Envio_Correo',
     # Fase 5 (Entrega)
     'F5_Operador', 'F5_Fecha', 'F5_Hora', 'Verificacion_Cobro', 'Recibido_Conforme',
     # Fase 6 (Reimpresión)
     'F6_Operador', 'F6_Fecha', 'F6_Hora', 'F6_Observaciones', 'F6_Uso_Material_g', 'F6_Tiempo_Impresion_HHMM', 'F6_Precio',
-    # Fase 7 (Cancelada)
+    # Fase 7 (Cancelación)
     'F7_Operador', 'F7_Fecha', 'F7_Hora', 'F7_Motivo_Cancelacion',
 ]
 
@@ -77,7 +92,7 @@ COLUMNAS_OPERADOR = [
 
 # --- Etiquetas legibles de los campos (para mensajes de validación) -------
 FIELD_NAMES = {
-    'F1_Operador': 'Operador (Recepción)', 'Carné': 'Carné', 'Cuenta': 'Cuenta',
+    'F1_Operador': 'Operador (Recepción)', 'Nombre_Usuario': 'Nombre del Usuario', 'Carné': 'Carné', 'Cuenta': 'Cuenta',
     'Uso': 'Uso', 'Nombre_Pieza': 'Nombre de la Pieza', 'Material': 'Material',
     'F1_Fecha': 'Fecha (Recepción)', 'F1_Hora': 'Hora (Recepción)',
     'Teléfono': 'Teléfono', 'Cantidad_Copias': 'Cantidad de Copias',

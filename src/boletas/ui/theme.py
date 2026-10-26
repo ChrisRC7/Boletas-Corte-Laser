@@ -15,7 +15,7 @@ PHASE_COLORS = [
     "#2E9B7B",  # 4. Despegado de Piezas   (verde azulado)
     "#B73A3A",  # 5. Entrega de Piezas     (rojo)
     "#E0892E",  # 6. Reimpresión           (naranja)
-    "#7A7A7A",  # 7. Cancelada             (gris)
+    "#7A7A7A",  # 7. Cancelación           (gris)
 ]
 
 BG = "#E6E9EE"         # Fondo de la ventana (la "mesa" bajo la hoja)
