@@ -1,7 +1,10 @@
 """Fase 3: Impresión.
 
-Registra la impresora usada y gestiona una lista dinámica de fallos de
-impresión, que se guarda serializada como JSON en la columna `Fallo_Lista`.
+Registra la impresora usada, una lista de fallos de impresión (guardada como
+JSON en la columna `Fallo_Lista`) y notas libres sobre la impresión.
+
+Los fallos solo se pueden agregar, nunca eliminar: así queda el historial
+completo de cada boleta y el proceso es transparente.
 """
 
 import json
@@ -38,7 +41,7 @@ class Phase3Impresion(PhaseSection):
 
         # Sistema dinámico de fallos
         row = self.new_row()
-        self.label(row, 0, "DETECCIÓN DE FALLOS", "Descripción, fecha, hora\ny operador")
+        self.label(row, 0, "DETECCIÓN DE FALLOS", "Descripción, fecha, hora\ny operador\n(no se pueden eliminar)")
         fallos_frame = self.cell(row, 1, colspan=3, sticky="ew")
         fallos_frame.grid_columnconfigure(0, weight=1)
 
@@ -55,9 +58,10 @@ class Phase3Impresion(PhaseSection):
         botones = ctk.CTkFrame(fallos_frame, fg_color="transparent")
         botones.grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ctk.CTkButton(botones, text="+ Agregar Fallo", width=120, fg_color=self.color,
-                      hover_color=self.hover_color, command=self._agregar_fallo).pack(side="left", padx=(0, 6))
-        ctk.CTkButton(botones, text="− Eliminar Fallo", width=120, fg_color=theme.NEUTRAL,
-                      hover_color=theme.darken(theme.NEUTRAL), command=self._eliminar_fallo).pack(side="left")
+                      hover_color=self.hover_color, command=self._agregar_fallo).pack(side="left")
+
+        row = self.new_row()
+        self.text_area(row, 'F3_Notas', "NOTAS DE\nIMPRESIÓN", "Observaciones sobre\nla impresión", height=90)
 
     def on_populate(self, boleta_data):
         import pandas as pd
@@ -82,7 +86,9 @@ class Phase3Impresion(PhaseSection):
         # CTkToplevel aún no es visible al crearse: el grab se hace un instante después.
         dialog.after(150, dialog.grab_set)
 
-        ctk.CTkLabel(dialog, text="Descripción del Fallo:", font=theme.font(12, "bold")).pack(pady=(10, 5), padx=10, anchor="w")
+        ctk.CTkLabel(dialog, text="Descripción del Fallo:", font=theme.font(12, "bold")).pack(pady=(10, 0), padx=10, anchor="w")
+        ctk.CTkLabel(dialog, text="Una vez guardado, el fallo no se puede eliminar.", font=theme.font(10),
+                     text_color=theme.HINT).pack(padx=10, anchor="w")
         descripcion_text = ctk.CTkTextbox(dialog, height=110, wrap="word", border_width=1,
                                           border_color=theme.SEPARATOR, font=theme.font(12))
         descripcion_text.pack(pady=5, padx=10, fill="both", expand=True)
@@ -103,14 +109,6 @@ class Phase3Impresion(PhaseSection):
                       hover_color=self.hover_color, command=guardar_fallo).pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="Cancelar", width=100, fg_color=theme.NEUTRAL,
                       hover_color=theme.darken(theme.NEUTRAL), command=dialog.destroy).pack(side="left", padx=5)
-
-    def _eliminar_fallo(self):
-        selection = self.fallos_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("Sin Selección", "Por favor seleccione un fallo para eliminar.", parent=self.form)
-            return
-        self.fallos_lista.pop(selection[0])
-        self._refrescar_lista_fallos()
 
     def _refrescar_lista_fallos(self):
         self.fallos_listbox.delete(0, tk.END)

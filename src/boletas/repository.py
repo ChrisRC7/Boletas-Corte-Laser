@@ -31,8 +31,21 @@ class BoletaRepository:
                 .fillna(0)
                 .astype(int)
             )
+            self._migrar()
         else:
             self.df = pd.DataFrame(columns=config.COLUMNAS)
+
+    def _migrar(self):
+        """Adapta un Excel de una versión anterior a la estructura actual.
+
+        - Añade las columnas nuevas que falten (si no, sus valores no se
+          guardarían al actualizar una boleta).
+        - Renombra las fases que cambiaron de nombre (`config.FASES_RENOMBRADAS`).
+        """
+        for columna in config.COLUMNAS:
+            if columna not in self.df.columns:
+                self.df[columna] = pd.NA
+        self.df['Fase Actual'] = self.df['Fase Actual'].replace(config.FASES_RENOMBRADAS)
 
     def save(self):
         """Guarda las boletas en el Excel respetando el orden de columnas.
@@ -96,6 +109,27 @@ class BoletaRepository:
         if rows.empty:
             return None
         return rows.iloc[0].to_dict()
+
+    def buscar_datos_usuario(self, campo, valor):
+        """Datos del usuario (cuenta, carrera, carné, teléfono) de su boleta más reciente.
+
+        `campo` es 'Carné' o 'Cuenta'. La comparación ignora mayúsculas y
+        espacios. Devuelve un diccionario solo con los campos que tienen valor,
+        o None si el usuario no tiene boletas anteriores.
+        """
+        valor = str(valor).strip().lower()
+        if self.df.empty or not valor or campo not in self.df.columns:
+            return None
+        coincidencias = self.df[self.df[campo].astype(str).str.strip().str.lower() == valor]
+        if coincidencias.empty:
+            return None
+        ultima = coincidencias.sort_values('ID Boleta').iloc[-1]
+        datos = {}
+        for columna in config.CAMPOS_DATOS_USUARIO:
+            dato = ultima.get(columna)
+            if not pd.isna(dato) and str(dato).strip():
+                datos[columna] = str(dato).strip()
+        return datos or None
 
     # --- Modificaciones ---------------------------------------------------
     def add(self, record):

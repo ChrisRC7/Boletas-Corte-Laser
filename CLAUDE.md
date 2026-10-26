@@ -70,7 +70,8 @@ se pueden probar sin abrir ventanas.
 src/main.py                 → arranca boletas.ui.main_window.App
 src/boletas/config.py       → FASES, COLUMNAS, REQUIRED_FIELDS, opciones, precio
 src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre el Excel)
-src/boletas/services.py     → PricingService, PhaseDetector
+src/boletas/services.py     → PricingService, PhaseDetector, UsuarioService (historial → AD)
+src/boletas/directorio_ad.py → DirectorioAD: consultas al AD (solo lectura, vía PowerShell)
 src/boletas/ui/main_window.py → App: listado, búsqueda, filtro por fase (controlador)
 src/boletas/ui/boleta_form.py → BoletaForm: orquesta las secciones, navega, valida, guarda
 src/boletas/ui/phases/      → una PhaseSection por fase + registro PHASE_CLASSES

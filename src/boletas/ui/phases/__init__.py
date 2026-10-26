@@ -14,7 +14,7 @@ from .fase3_impresion import Phase3Impresion
 from .fase4_despegado import Phase4Despegado
 from .fase5_entrega import Phase5Entrega
 from .fase6_reimpresion import Phase6Reimpresion
-from .fase7_cancelada import Phase7Cancelada
+from .fase7_cancelacion import Phase7Cancelacion
 
 # Orden de las secciones (coincide con el orden de config.FASES).
 PHASE_CLASSES = [
@@ -24,7 +24,7 @@ PHASE_CLASSES = [
     Phase4Despegado,
     Phase5Entrega,
     Phase6Reimpresion,
-    Phase7Cancelada,
+    Phase7Cancelacion,
 ]
 
 

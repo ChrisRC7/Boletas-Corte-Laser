@@ -20,7 +20,15 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
 - Permite **buscar** (por ID, carné, operador o cuenta) y **filtrar por fase**.
 - En las fases de Revisión e Impresión ordena por **prioridad de impresión**
   (Curso y Evento → Asistencia → Personal; a igual prioridad, por fecha de recepción).
-- Registra una lista dinámica de **fallos de impresión**.
+- Registra una lista de **fallos de impresión**. Una vez registrado, un fallo
+  **no se puede eliminar** (queda en el historial de la boleta).
+- Tiene un campo de **notas de impresión** en la Fase 3.
+- **Autocompleta con el Active Directory** (solo lectura):
+  - En **OPERADOR** se puede escribir el correo (`usuario@estudiantec.cr`) o el
+    carné: se sustituye por el nombre completo del estudiante.
+  - Al escribir la **cuenta** o el **carné** en la Recepción se llenan cuenta,
+    carrera, carné y teléfono: primero con los datos de boletas anteriores del
+    mismo usuario y, si no tiene, con los del AD.
 
 ### El formulario de una boleta
 
@@ -42,7 +50,7 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
 4. Despegado de Piezas
 5. Entrega de Piezas
 6. Reimpresión
-7. Cancelada
+7. Cancelación
 
 ---
 
@@ -61,7 +69,8 @@ Boletas Corte Laser/
     │   ├── __init__.py
     │   ├── config.py          # Constantes: fases, columnas, opciones, precio
     │   ├── repository.py      # Acceso a datos (Excel)        [patrón Repository]
-    │   ├── services.py        # Lógica de negocio (precio, detección de fase)
+    │   ├── services.py        # Lógica de negocio (precio, fase, autocompletado de usuarios)
+    │   ├── directorio_ad.py   # Consultas al Active Directory (solo lectura)
     │   └── ui/                # Interfaz gráfica (CustomTkinter)
     │       ├── __init__.py
     │       ├── theme.py       # Colores de cada fase y fuentes (imitan la boleta)
@@ -76,7 +85,7 @@ Boletas Corte Laser/
     │           ├── fase4_despegado.py
     │           ├── fase5_entrega.py
     │           ├── fase6_reimpresion.py
-    │           └── fase7_cancelada.py
+    │           └── fase7_cancelacion.py
     ├── main.spec              # Configuración de PyInstaller
     └── build/, dist/          # Artefactos generados al empaquetar
 ```
@@ -110,7 +119,8 @@ repositorio, pero la lógica de datos no sabe nada de la interfaz.
 |----------------------|---------------------------------------------------------------------------------|--------|
 | `config.py`          | Único lugar con las constantes del dominio (fases, columnas, opciones, precio). | Configuración centralizada |
 | `repository.py`      | Toda la lectura/escritura del Excel y las consultas (CRUD, búsqueda, filtros).  | **Repository** |
-| `services.py`        | Cálculos reutilizables sin interfaz: precio y detección de la fase actual.       | Servicios sin estado |
+| `services.py`        | Cálculos reutilizables sin interfaz: precio, detección de la fase actual y autocompletado de usuarios (historial → AD). | Servicios |
+| `directorio_ad.py`   | Búsquedas de estudiantes en el Active Directory (solo lectura).                  | Adaptador |
 | `ui/main_window.py`  | Ventana principal: actúa como **controlador** entre la vista y el repositorio.   | Separación vista/lógica |
 | `ui/theme.py`        | Colores de cada fase y fuentes. Único lugar con la apariencia visual.            | Configuración centralizada |
 | `ui/boleta_form.py`  | **Orquestador** del formulario: arma las secciones desplegables, navega y guarda; no conoce el detalle de cada fase. | Separación vista/lógica |
