@@ -22,7 +22,7 @@ _Última revisión: 2026-10-26._
 
 | # | Fase | Campos clave |
 |---|------|--------------|
-| 1 | Recepción | operador, fecha/hora, cuenta, carrera, carné, teléfono, uso (+detalle), pieza, copias, material, resolución, relleno |
+| 1 | Recepción | operador, fecha/hora, nombre del usuario, cuenta, carrera, carné, teléfono, uso (+detalle), pieza, copias, material, resolución, relleno |
 | 2 | Revisión y Preparación | gramos de material, tiempo de impresión, **precio** (= g × `PRECIO_POR_GRAMO`, 50 ₡) |
 | 3 | Impresión | confirmación del usuario, impresora (1–7), envío de correo, **lista de fallos** (solo se agregan, no se eliminan), **notas de impresión** |
 | 4 | Despegado de Piezas | observaciones, ¿imprimió bien?, correo |
@@ -77,10 +77,12 @@ _Última revisión: 2026-10-26._
 - Atributos: `sAMAccountName` = cuenta (usuario del correo; los correos siempre
   son `@estudiantec.cr`), `employeeID` = carné, `name` = nombre completo,
   `mail` = correo, `description` = "SEDE - CARRERA".
-- **Operador** (todas las fases): si se escribe un correo o un carné, se
-  sustituye por el nombre completo. Un texto sin `@` que no sea carné se deja
-  tal cual.
-- **Cuenta / Carné** (Fase 1): primero se buscan boletas anteriores del usuario
+- **Operador** (todas las fases): si se escribe una cuenta (con o sin
+  `@estudiantec.cr`) o un carné, se sustituye por el nombre completo. Un texto
+  con espacios (un nombre) se deja tal cual; una sola palabra que no exista en
+  el AD también.
+- **Cuenta / Carné** (Fase 1): llenan nombre del usuario (`Nombre_Usuario`),
+  cuenta, carrera, carné y teléfono. Primero se buscan boletas anteriores del usuario
   (`BoletaRepository.buscar_datos_usuario`); si no hay, se consulta el AD. Solo
   se llenan campos vacíos. Los estudiantes no suelen tener teléfono en el AD.
 - Las consultas al AD corren en segundo plano (`BoletaForm.en_segundo_plano`).

@@ -24,10 +24,11 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   **no se puede eliminar** (queda en el historial de la boleta).
 - Tiene un campo de **notas de impresión** en la Fase 3.
 - **Autocompleta con el Active Directory** (solo lectura):
-  - En **OPERADOR** se puede escribir el correo (`usuario@estudiantec.cr`) o el
-    carné: se sustituye por el nombre completo del estudiante.
-  - Al escribir la **cuenta** o el **carné** en la Recepción se llenan cuenta,
-    carrera, carné y teléfono: primero con los datos de boletas anteriores del
+  - En **OPERADOR** se puede escribir el usuario del correo (con o sin
+    `@estudiantec.cr`) o el carné: se sustituye por el nombre completo.
+    Un nombre con espacios se deja tal cual.
+  - Al escribir la **cuenta** o el **carné** en la Recepción se llenan nombre del
+    usuario, cuenta, carrera, carné y teléfono: primero con los datos de boletas anteriores del
     mismo usuario y, si no tiene, con los del AD.
 
 ### El formulario de una boleta

@@ -6,7 +6,7 @@ Reimpresión).
 """
 
 from . import config
-from .directorio_ad import es_carne, es_correo, normalizar_cuenta
+from .directorio_ad import es_carne, es_correo, es_cuenta, normalizar_cuenta
 
 
 class PricingService:
@@ -57,30 +57,35 @@ class UsuarioService:
 
     @staticmethod
     def identificar(texto):
-        """Clasifica lo escrito: ('Carné', carne), ('Cuenta', usuario) o (None, texto)."""
+        """Clasifica lo escrito: ('Carné', carne), ('Cuenta', usuario) o (None, texto).
+
+        Una cuenta puede escribirse con o sin @estudiantec.cr. Un texto con
+        espacios (p. ej. un nombre completo) no se considera cuenta.
+        """
         texto = (texto or "").strip()
         if es_carne(texto):
             return 'Carné', texto
-        if es_correo(texto):
+        if es_correo(texto) or es_cuenta(texto):
             return 'Cuenta', normalizar_cuenta(texto)
         return None, texto
 
     def datos_desde_historial(self, campo, valor):
-        """Cuenta, carrera, carné y teléfono de la boleta más reciente del usuario."""
+        """Nombre, cuenta, carrera, carné y teléfono de la boleta más reciente del usuario."""
         return self.repositorio.buscar_datos_usuario(campo, valor)
 
     def datos_desde_directorio(self, campo, valor):
-        """Cuenta, carrera, carné y teléfono del usuario según el AD."""
+        """Nombre, cuenta, carrera, carné y teléfono del usuario según el AD."""
         if campo == 'Carné':
             usuario = self.directorio.buscar_por_carne(valor)
         else:
             usuario = self.directorio.buscar_por_cuenta(valor)
         if not usuario:
             return None
+        usuario = dict(usuario, Nombre_Usuario=usuario.get("Nombre", ""))
         return {campo: usuario[campo] for campo in config.CAMPOS_DATOS_USUARIO if usuario.get(campo)}
 
     def nombre_operador(self, texto):
-        """Nombre completo para un correo o carné escrito como operador (o None)."""
+        """Nombre completo para un correo, cuenta o carné escrito como operador (o None)."""
         campo, valor = self.identificar(texto)
         if campo is None:
             return None

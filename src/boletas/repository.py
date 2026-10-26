@@ -111,7 +111,7 @@ class BoletaRepository:
         return rows.iloc[0].to_dict()
 
     def buscar_datos_usuario(self, campo, valor):
-        """Datos del usuario (cuenta, carrera, carné, teléfono) de su boleta más reciente.
+        """Datos del usuario (nombre, cuenta, carrera, carné, teléfono) de su boleta más reciente.
 
         `campo` es 'Carné' o 'Cuenta'. La comparación ignora mayúsculas y
         espacios. Devuelve un diccionario solo con los campos que tienen valor,

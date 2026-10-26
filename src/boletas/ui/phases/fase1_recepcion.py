@@ -18,6 +18,9 @@ class Phase1Recepcion(PhaseSection):
     def build_widgets(self, frame):
         self.operator_row()
 
+        row = self.new_row()
+        self.field(row, 0, 'Nombre_Usuario', "NOMBRE DEL USUARIO", "Se llena con la cuenta o el carné", colspan=3)
+
         # CUENTA y CARNÉ autocompletan los datos del usuario (historial o AD).
         row = self.new_row()
         cuenta_entry = self.field(row, 0, 'Cuenta', "CUENTA", config.AD_DOMINIO_CORREO)
@@ -96,7 +99,7 @@ class Phase1Recepcion(PhaseSection):
         self._autocompletar_usuario('Carné')
 
     def _autocompletar_usuario(self, campo):
-        """Llena cuenta, carrera, carné y teléfono a partir de la cuenta o el carné.
+        """Llena nombre, cuenta, carrera, carné y teléfono a partir de la cuenta o el carné.
 
         Primero busca en las boletas anteriores del usuario; si no tiene, lo
         consulta en el AD (en segundo plano). Solo se llenan los campos vacíos,

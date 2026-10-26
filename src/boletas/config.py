@@ -18,7 +18,7 @@ AD_DOMINIO_CORREO = "@estudiantec.cr"
 AD_TIMEOUT_SEGUNDOS = 8
 
 # Datos del usuario (estudiante) que se autocompletan en la Recepción.
-CAMPOS_DATOS_USUARIO = ['Cuenta', 'Carrera', 'Carné', 'Teléfono']
+CAMPOS_DATOS_USUARIO = ['Nombre_Usuario', 'Cuenta', 'Carrera', 'Carné', 'Teléfono']
 
 # Precio cobrado por cada gramo de material usado (en colones).
 PRECIO_POR_GRAMO = 50
@@ -62,7 +62,7 @@ PRIORIDAD_POR_DEFECTO = 4
 COLUMNAS = [
     'ID Boleta', 'Fase Actual',
     # Fase 1
-    'F1_Operador', 'F1_Fecha', 'F1_Hora', 'Cuenta', 'Carrera', 'Carné', 'Teléfono',
+    'F1_Operador', 'F1_Fecha', 'F1_Hora', 'Nombre_Usuario', 'Cuenta', 'Carrera', 'Carné', 'Teléfono',
     'Uso', 'Uso_Detalle', 'Nombre_Pieza', 'Observaciones_Usuario', 'Cantidad_Copias',
     'Material', 'Material_Otro_Detalle', 'Resolucion', 'Relleno', 'Autoriza_Recoger',
     # Fase 2
@@ -92,7 +92,7 @@ COLUMNAS_OPERADOR = [
 
 # --- Etiquetas legibles de los campos (para mensajes de validación) -------
 FIELD_NAMES = {
-    'F1_Operador': 'Operador (Recepción)', 'Carné': 'Carné', 'Cuenta': 'Cuenta',
+    'F1_Operador': 'Operador (Recepción)', 'Nombre_Usuario': 'Nombre del Usuario', 'Carné': 'Carné', 'Cuenta': 'Cuenta',
     'Uso': 'Uso', 'Nombre_Pieza': 'Nombre de la Pieza', 'Material': 'Material',
     'F1_Fecha': 'Fecha (Recepción)', 'F1_Hora': 'Hora (Recepción)',
     'Teléfono': 'Teléfono', 'Cantidad_Copias': 'Cantidad de Copias',

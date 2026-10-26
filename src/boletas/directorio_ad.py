@@ -63,6 +63,11 @@ def es_correo(texto):
     return "@" in (texto or "")
 
 
+def es_cuenta(texto):
+    """True si el texto tiene forma de usuario de correo (sin espacios ni '@')."""
+    return bool(_PATRON_CUENTA.match((texto or "").strip().lower()))
+
+
 def normalizar_cuenta(texto):
     """Devuelve solo el usuario del correo: 'Juan@estudiantec.cr' -> 'juan'."""
     return (texto or "").strip().split("@", 1)[0].strip().lower()
@@ -89,7 +94,7 @@ class DirectorioAD:
 
     def buscar_por_cuenta(self, cuenta):
         cuenta = normalizar_cuenta(cuenta)
-        if not _PATRON_CUENTA.match(cuenta):
+        if not es_cuenta(cuenta):
             return None
         return self._buscar(f"(sAMAccountName={_escapar_ldap(cuenta)})")
 
