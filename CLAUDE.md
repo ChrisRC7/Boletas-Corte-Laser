@@ -58,7 +58,7 @@ cd src && python main.py                 # ejecutar (el Excel se crea en el cwd)
 
 # Empaquetar (.exe en src/dist/). Siempre con --collect-data customtkinter;
 # no compilar con un main.spec viejo que no lo incluya.
-cd src && python -m PyInstaller --onefile --windowed --strip --noupx --collect-data customtkinter main.py
+cd src && python -m PyInstaller --onefile --windowed --noupx --collect-data customtkinter main.py
 ```
 
 No hay suite de tests ni linter configurado. `services.py` y `repository.py`

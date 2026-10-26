@@ -183,7 +183,7 @@ Con [PyInstaller](https://pyinstaller.org/):
 
 ```bash
 cd "Boletas Corte Laser/src"
-python -m PyInstaller --onefile --windowed --strip --noupx --collect-data customtkinter main.py
+python -m PyInstaller --onefile --windowed --noupx --collect-data customtkinter main.py
 ```
 
 El ejecutable queda en `src/dist/`. PyInstaller detecta automáticamente los
