@@ -2,7 +2,8 @@
 
 Esta clase es el "controlador" de la interfaz: reacciona a los botones y delega
 el acceso a datos en `BoletaRepository` y la edición en `BoletaForm`. No conoce
-detalles de pandas ni del Excel.
+detalles de pandas ni del Excel. También abre la Configuración y el Orden de
+impresión del día.
 """
 
 import tkinter as tk
@@ -10,10 +11,15 @@ from tkinter import ttk, messagebox
 
 import customtkinter as ctk
 
-from .. import config
+from .. import ajustes, config
+from ..directorio_ad import DirectorioAD
+from ..planificador import PlanificadorService
 from ..repository import BoletaRepository
+from ..services import UsuarioService
 from . import theme
 from .boleta_form import BoletaForm
+from .config_window import ConfigWindow
+from .plan_window import PlanWindow
 
 
 class App(ctk.CTk):
@@ -28,30 +34,33 @@ class App(ctk.CTk):
         self.geometry("1200x650")
         self.configure(fg_color=theme.BG)
 
+        # Los ajustes guardados desde la interfaz se aplican antes de usar config.
+        error_ajustes = ajustes.cargar()
+
         self.repo = BoletaRepository()
         self.repo.load()
+        self.usuarios = UsuarioService(self.repo, DirectorioAD())
 
         self.create_widgets()
         self.show_all_boletas()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        if error_ajustes:
+            self.after(300, lambda: messagebox.showwarning("Configuración", error_ajustes))
 
     # --- Ciclo de vida ----------------------------------------------------
     def on_closing(self):
-        self.save_data()
+        # Cada cambio ya se guardó en el Excel en el momento: no hay nada pendiente.
         self.destroy()
 
-    def save_data(self):
-        """Guarda los cambios, traduciendo los errores a mensajes para el usuario."""
-        try:
-            self.repo.save()
-        except PermissionError:
-            messagebox.showerror(
-                "Error",
-                f"No se pudo guardar el archivo '{self.repo.excel_file}'.\n"
-                "Asegúrese de que no esté abierto.",
-            )
-        except Exception as e:
-            messagebox.showerror("Error Inesperado", f"Ocurrió un error al guardar: {e}")
+    def _avisar_error_guardado(self, error, parent=None):
+        """Traduce un error al escribir el Excel a un mensaje para el usuario."""
+        if isinstance(error, PermissionError):
+            texto = (f"No se pudo guardar el archivo '{self.repo.excel_file}'.\n"
+                     "Asegúrese de que no esté abierto en Excel y vuelva a intentarlo.")
+        else:
+            texto = f"Ocurrió un error al guardar: {error}"
+        messagebox.showerror("No se guardó", texto + "\n\nEl cambio no se aplicó.",
+                             parent=parent or self)
 
     # --- Construcción de la interfaz --------------------------------------
     def create_widgets(self):
@@ -66,9 +75,18 @@ class App(ctk.CTk):
         ctk.CTkButton(banner, text="✚  Añadir", width=110, font=theme.font(13, "bold"),
                       fg_color=theme.SUCCESS, hover_color=theme.darken(theme.SUCCESS),
                       command=self.open_new_boleta_window).pack(side="right", padx=(6, 20))
+        ctk.CTkButton(banner, text="⧉  Copiar", width=110, font=theme.font(13, "bold"),
+                      fg_color=theme.PHASE_COLORS[0], hover_color=theme.darken(theme.PHASE_COLORS[0]),
+                      command=self.copy_selected_boleta).pack(side="right", padx=6)
         ctk.CTkButton(banner, text="🗑  Borrar", width=110, font=theme.font(13, "bold"),
                       fg_color=theme.DANGER, hover_color=theme.darken(theme.DANGER),
                       command=self.delete_selected_boleta).pack(side="right", padx=6)
+        ctk.CTkButton(banner, text="📋  Orden de impresión", width=170, font=theme.font(13, "bold"),
+                      fg_color=theme.PHASE_COLORS[2], hover_color=theme.darken(theme.PHASE_COLORS[2]),
+                      command=self.open_plan_window).pack(side="right", padx=6)
+        ctk.CTkButton(banner, text="⚙  Configuración", width=150, font=theme.font(13, "bold"),
+                      fg_color=theme.NEUTRAL, hover_color=theme.darken(theme.NEUTRAL),
+                      command=self.open_config_window).pack(side="right", padx=6)
 
         # Búsqueda
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -193,6 +211,20 @@ class App(ctk.CTk):
     def open_new_boleta_window(self):
         BoletaForm(self)
 
+    def copy_selected_boleta(self):
+        """Nueva boleta con la Recepción de la seleccionada (usuario con varias impresiones)."""
+        selected_item = self.tree.focus()
+        if not selected_item:
+            messagebox.showwarning("Sin selección", "Seleccione la boleta que desea copiar.")
+            return
+        BoletaForm(self, copiar_de=int(self.tree.item(selected_item, 'values')[0]))
+
+    def open_config_window(self):
+        ConfigWindow(self, al_guardar=self.show_all_boletas)
+
+    def open_plan_window(self):
+        PlanWindow(self, PlanificadorService(self.repo))
+
     def on_double_click(self, event):
         item_id = self.tree.focus()
         if not item_id:
@@ -213,7 +245,12 @@ class App(ctk.CTk):
             f"¿Está seguro de que desea borrar permanentemente la boleta #{boleta_id}?",
         ):
             return
-        if self.repo.delete(boleta_id):
+        try:
+            borrada = self.repo.delete(boleta_id)
+        except Exception as error:
+            self._avisar_error_guardado(error)
+            return
+        if borrada:
             self.show_all_boletas()
             messagebox.showinfo("Éxito", f"La boleta #{boleta_id} ha sido borrada.")
         else:
@@ -223,15 +260,32 @@ class App(ctk.CTk):
     def get_next_id(self):
         return self.repo.get_next_id()
 
+    def numero_impresion(self, carne, boleta_id):
+        return self.repo.numero_impresion(carne, boleta_id)
+
     def get_boleta_by_id(self, boleta_id):
         return self.repo.get_by_id(boleta_id)
 
-    def add_new_record(self, record_dict):
-        self.repo.add(record_dict)
+    def add_new_record(self, record_dict, parent=None):
+        """Añade y guarda una boleta. Devuelve True si quedó guardada en el Excel."""
+        try:
+            self.repo.add(record_dict)
+        except Exception as error:
+            self._avisar_error_guardado(error, parent)
+            return False
         self.show_all_boletas()
+        return True
 
-    def update_record(self, boleta_id, form_data):
-        if not self.repo.update(boleta_id, form_data):
-            messagebox.showerror("Error", "No se pudo encontrar el índice para actualizar.")
-            return
+    def update_record(self, boleta_id, form_data, parent=None):
+        """Actualiza y guarda una boleta. Devuelve True si quedó guardada en el Excel."""
+        try:
+            encontrada = self.repo.update(boleta_id, form_data)
+        except Exception as error:
+            self._avisar_error_guardado(error, parent)
+            return False
+        if not encontrada:
+            messagebox.showerror("Error", f"No se encontró la boleta #{boleta_id} para actualizarla.",
+                                 parent=parent or self)
+            return False
         self.show_all_boletas()
+        return True
