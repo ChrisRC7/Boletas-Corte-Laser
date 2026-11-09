@@ -16,7 +16,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ... import catalogo, config
-from ...directorio_ad import es_carne, es_correo, normalizar_cuenta
+from ...directorio_ad import es_carne, es_correo, es_cuenta, normalizar_cuenta
 from .. import theme
 from .base import PhaseSection, PAD_X, PAD_Y
 
@@ -156,12 +156,20 @@ class Phase1Recepcion(PhaseSection):
 
     # --- Autocompletado del usuario ---------------------------------------
     def _on_nombre_changed(self, _event=None):
-        """Si en el nombre se escribió un correo o un carné, se usa para autocompletar."""
+        """Si en el nombre se escribió un correo, una cuenta o un carné, se usa para autocompletar.
+
+        Los correos se asumen de `config.AD_DOMINIO_CORREO`, así que basta con el
+        usuario (p. ej. "chrodriguez"). Como una sola palabra también puede ser
+        un nombre, en ese caso solo se reemplaza si la cuenta existe.
+        """
         texto = self.vars['Nombre_Usuario'].get().strip()
         if es_carne(texto):
             campo, valor = 'Carné', texto
         elif es_correo(texto):
             campo, valor = 'Cuenta', normalizar_cuenta(texto)
+        elif es_cuenta(texto):
+            self._probar_cuenta_en_nombre(texto)
+            return
         else:
             return  # Es un nombre: se deja tal cual.
         self._nombre_provisional = texto
@@ -169,6 +177,26 @@ class Phase1Recepcion(PhaseSection):
         if campo == 'Carné':
             self._update_part_name()
         self._autocompletar_usuario(campo, forzar=True)
+
+    def _probar_cuenta_en_nombre(self, texto):
+        """Busca `texto` como cuenta; si existe, la usa. Si no, se queda como nombre."""
+        cuenta = normalizar_cuenta(texto)
+        usuarios = self.form.parent_app.usuarios
+
+        def aplicar(datos):
+            # Se descarta si el operador cambió el nombre mientras se buscaba.
+            if not datos or self.vars['Nombre_Usuario'].get().strip() != texto:
+                return
+            self.vars['Cuenta'].set(cuenta)
+            self._buscado['Cuenta'] = cuenta
+            self._nombre_provisional = texto
+            self._llenar_datos_usuario(datos, 'Cuenta')
+
+        datos = usuarios.datos_desde_historial('Cuenta', cuenta)
+        if datos:
+            aplicar(datos)
+        else:
+            self.form.en_segundo_plano(lambda: usuarios.datos_desde_directorio('Cuenta', cuenta), aplicar)
 
     def _on_carne_changed(self, _event=None):
         self._update_part_name()
