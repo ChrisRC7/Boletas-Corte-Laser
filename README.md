@@ -98,7 +98,9 @@ gramos/tiempo aparecen en "Sin programar".
 - Volver a una fase anterior para corregir algo no retrocede la boleta: al
   guardar, queda en la fase más avanzada a la que se llegó.
 - El **tiempo de impresión** se escribe en dos campos (horas y minutos) y se
-  guarda como `H:MM`.
+  guarda como `H:MM`. Esos campos solo aceptan números.
+- Los campos de **fecha** y **hora** de todas las fases solo aceptan números y
+  los separadores del formato (`/` en la fecha; `:` y am/pm en la hora).
 - La barra inferior tiene **Anterior / Siguiente** (valida los campos
   obligatorios antes de avanzar), el selector de **Fase Actual**,
   **Expandir todo / Contraer todo** y **Guardar Cambios**.

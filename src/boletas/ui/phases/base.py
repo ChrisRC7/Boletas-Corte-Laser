@@ -22,6 +22,7 @@ Contrato que puede implementar cada fase:
 El título y el color de la barra salen de config.FASES y theme.PHASE_COLORS.
 """
 
+import re
 import tkinter as tk
 from tkinter import messagebox
 
@@ -35,6 +36,14 @@ LABEL_COLUMNS = (0, 2)
 FIELD_COLUMNS = (1, 3)
 PAD_X = 12
 PAD_Y = 5
+
+# Lo que se puede escribir (o pegar) en los campos con formato fijo. Los
+# patrones validan el texto completo mientras se teclea, así que aceptan
+# valores a medio escribir.
+PATRON_FECHA = r"[\d/]{0,10}"                                      # dd/mm/aaaa
+PATRON_HORA = r"[\d:]{0,5}|\d{1,2}:\d{2}(\s?[aApP]\.?\s?[mM]?\.?|\s)"  # hh:mm am/pm (am/pm tras hh:mm)
+PATRON_HORAS = r"\d{0,3}"                                          # tiempo: horas
+PATRON_MINUTOS = r"\d{0,4}"                                        # tiempo: minutos (90 -> 1 h 30)
 
 
 class PhaseSection:
@@ -190,6 +199,13 @@ class PhaseSection:
         return ctk.CTkEntry(parent, textvariable=self.vars[key], width=width,
                             border_color=theme.SEPARATOR, font=theme.font(12), **kwargs)
 
+    @staticmethod
+    def restringir(entry, patron):
+        """Solo deja escribir o pegar en `entry` textos que cumplan `patron` (completo)."""
+        comando = entry.register(lambda propuesto: re.fullmatch(patron, propuesto) is not None)
+        entry.configure(validate="key", validatecommand=(comando, "%P"))
+        return entry
+
     def field(self, row, col, key, text, hint=None, colspan=1, **kwargs):
         """Etiqueta + campo de texto en la cuadrícula. Devuelve el CTkEntry."""
         self.label(row, col, text, hint)
@@ -233,12 +249,16 @@ class PhaseSection:
         self.form.en_segundo_plano(lambda: usuarios.nombre_operador(texto), aplicar)
 
     def datetime_fields(self, row, col, fecha_key, hora_key):
-        """Campos de Fecha y Hora con un botón 'Hoy'."""
+        """Campos de Fecha y Hora con un botón 'Hoy'.
+
+        Solo aceptan números y los separadores del formato (`/` en la fecha;
+        `:` y am/pm en la hora).
+        """
         self.label(row, col, "FECHA", "dd/mm/aaaa · hh:mm am/pm")
         cell = self.cell(row, col + 1, sticky="ew")
-        self.entry(cell, fecha_key, width=105).pack(side="left")
+        self.restringir(self.entry(cell, fecha_key, width=105), PATRON_FECHA).pack(side="left")
         ctk.CTkLabel(cell, text="HORA", font=theme.font(12, "bold"), text_color=theme.TEXT).pack(side="left", padx=(10, 6))
-        self.entry(cell, hora_key, width=90).pack(side="left")
+        self.restringir(self.entry(cell, hora_key, width=90), PATRON_HORA).pack(side="left")
         ctk.CTkButton(
             cell, text="Hoy", width=50, fg_color=self.color, hover_color=self.hover_color,
             command=lambda: self.form.set_datetime(fecha_key, hora_key),
@@ -247,7 +267,8 @@ class PhaseSection:
     def duration_field(self, row, col, key, text):
         """Etiqueta + dos campos (horas y minutos) que se guardan juntos como "H:MM" en `vars[key]`.
 
-        Si las horas o los minutos no son números, `vars[key]` queda vacío (y la
+        Al teclear solo se aceptan números. Si las horas o los minutos no son números
+        (p. ej. un valor viejo cargado del Excel), `vars[key]` queda vacío (y la
         validación de obligatorios lo marca). Los minutos de más se pasan a
         horas (0 h 90 min -> "1:30").
         """
@@ -257,9 +278,10 @@ class PhaseSection:
         horas, minutos = tk.StringVar(), tk.StringVar()
         sincronizando = [False]
 
-        for parte, unidad in ((horas, "h"), (minutos, "min")):
-            ctk.CTkEntry(cell, textvariable=parte, width=60, border_color=theme.SEPARATOR,
-                         font=theme.font(12), justify="center").pack(side="left")
+        for parte, unidad, patron in ((horas, "h", PATRON_HORAS), (minutos, "min", PATRON_MINUTOS)):
+            campo = ctk.CTkEntry(cell, textvariable=parte, width=60, border_color=theme.SEPARATOR,
+                                 font=theme.font(12), justify="center")
+            self.restringir(campo, patron).pack(side="left")
             ctk.CTkLabel(cell, text=unidad, font=theme.font(12), text_color=theme.TEXT).pack(side="left", padx=(4, 12))
 
         def desde_campos(*_):
