@@ -207,8 +207,8 @@ IMPRESORAS = [
     {"numero": 2, "tipo": "MK4S", "activa": True},
     {"numero": 3, "tipo": "MK4S", "activa": True},
     {"numero": 4, "tipo": "MK4S", "activa": True},
-    {"numero": 5, "tipo": "Core One Plus", "activa": True},
-    {"numero": 6, "tipo": "Core One Plus", "activa": True},
+    {"numero": 5, "tipo": "MK4S", "activa": True},
+    {"numero": 6, "tipo": "MK4S", "activa": True},
     {"numero": 7, "tipo": "Core One Plus", "activa": True},
 ]
 
