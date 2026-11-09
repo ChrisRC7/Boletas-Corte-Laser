@@ -1,6 +1,7 @@
 """Fase 3: Impresión.
 
-Registra la impresora usada, una lista de fallos de impresión (guardada como
+Muestra en qué tipo de impresora hay que imprimir (lo decide la Revisión) y
+solo deja elegir impresoras activas de ese tipo. Registra la impresora usada, una lista de fallos de impresión (guardada como
 JSON en la columna `Fallo_Lista`) y notas libres sobre la impresión.
 
 Los fallos solo se pueden agregar, nunca eliminar: así queda el historial
@@ -13,7 +14,7 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-from ... import config
+from ... import catalogo, config
 from .. import theme
 from .base import PhaseSection, PAD_X, PAD_Y
 
@@ -33,11 +34,26 @@ class Phase3Impresion(PhaseSection):
         self.radio_group(self.cell(row, 1, colspan=3), 'Confirmacion_Usuario',
                          config.CONFIRMACION_OPTIONS, item_width=180)
 
+        # Tipo de impresora pedido en la Revisión (solo lectura).
         row = self.new_row()
-        self.label(row, 0, "IMPRESORA")
-        self.radio_group(self.cell(row, 1), 'Impresora_Num', config.IMPRESORA_OPTIONS, item_width=40)
+        self.label(row, 0, "IMPRIMIR EN", "Tipo de impresora\n(se elige en la Revisión)")
+        self.tipo_label = ctk.CTkLabel(frame, text="", font=theme.font(14, "bold"),
+                                       text_color=theme.ACCENT_RED, anchor="w")
+        self.tipo_label.grid(row=row, column=1, sticky="w", padx=(0, PAD_X), pady=PAD_Y)
         self.checkbox(frame, 'F3_Envio_Correo', "Envío de correo de notificación de inicio",
                       text_color=theme.ACCENT_RED).grid(row=row, column=2, columnspan=2, sticky="w", padx=PAD_X, pady=PAD_Y)
+
+        row = self.new_row()
+        self.label(row, 0, "IMPRESORA", "Solo las del tipo indicado")
+        impresoras = catalogo.impresoras_activas()
+        textos = {str(i["numero"]): f'{i["numero"]} · {i.get("tipo", "")}' for i in impresoras}
+        self.impresora_radios = self.radio_group(
+            self.cell(row, 1, colspan=3), 'Impresora_Num', [i["numero"] for i in impresoras],
+            per_row=4, labels=textos if config.USAR_TIPO_IMPRESORA else None,
+            item_width=150 if config.USAR_TIPO_IMPRESORA else 40,
+        )
+        self.vars['Tipo_Impresora'].trace_add('write', lambda *_: self._actualizar_tipo())
+        self._actualizar_tipo()
 
         # Sistema dinámico de fallos
         row = self.new_row()
@@ -64,6 +80,7 @@ class Phase3Impresion(PhaseSection):
         self.text_area(row, 'F3_Notas', "NOTAS DE\nIMPRESIÓN", "Observaciones sobre\nla impresión", height=90)
 
     def on_populate(self, boleta_data):
+        self._actualizar_tipo()  # La impresora se carga después que el tipo.
         import pandas as pd
         fallo_lista_str = boleta_data.get('Fallo_Lista', '')
         if fallo_lista_str and not pd.isna(fallo_lista_str) and str(fallo_lista_str).strip():
@@ -72,6 +89,25 @@ class Phase3Impresion(PhaseSection):
                 self._refrescar_lista_fallos()
             except json.JSONDecodeError:
                 self.fallos_lista = []
+
+    # --- Tipo de impresora ------------------------------------------------
+    def _actualizar_tipo(self):
+        """Muestra el tipo pedido y deshabilita las impresoras de otro tipo."""
+        tipo = self.vars['Tipo_Impresora'].get().strip()
+        if not config.USAR_TIPO_IMPRESORA:
+            self.tipo_label.configure(text="Cualquier impresora")
+        elif not tipo:
+            self.tipo_label.configure(text="(sin indicar en la Revisión)")
+        elif tipo == config.TIPO_IMPRESORA_CUALQUIERA:
+            self.tipo_label.configure(text="Cualquier impresora")
+        else:
+            self.tipo_label.configure(text=tipo)
+
+        seleccionada = self.vars['Impresora_Num'].get()
+        for numero, boton in self.impresora_radios.items():
+            compatible = catalogo.tipo_compatible(tipo, catalogo.tipo_de_impresora(numero))
+            # La ya elegida queda habilitada para no "perderla" al editar boletas viejas.
+            boton.configure(state='normal' if compatible or numero == seleccionada else 'disabled')
 
     def on_collect(self, form_data):
         form_data['Fallo_Lista'] = json.dumps(self.fallos_lista) if self.fallos_lista else ''

@@ -11,14 +11,16 @@ import os
 
 import pandas as pd
 
-from . import config
+from . import catalogo, config
 
 
 class BoletaRepository:
     """Gestiona la lectura, escritura y consultas de las boletas."""
 
-    def __init__(self, excel_file=config.EXCEL_FILE):
-        self.excel_file = excel_file
+    def __init__(self, excel_file=None):
+        # Se lee aquí (no como valor por defecto del parámetro) para respetar
+        # la ruta cambiada desde la Configuración.
+        self.excel_file = excel_file or config.EXCEL_FILE
         self.df = pd.DataFrame(columns=config.COLUMNAS)
 
     # --- Persistencia -----------------------------------------------------
@@ -87,13 +89,17 @@ class BoletaRepository:
         filtered = self.df[self.df['Fase Actual'] == fase].copy()
 
         if fase in config.FASES_CON_PRIORIDAD:
-            filtered['Prioridad'] = filtered['Uso'].map(config.PRIORIDAD_USO).fillna(config.PRIORIDAD_POR_DEFECTO)
+            filtered['Prioridad'] = filtered['Uso'].map(catalogo.mapa_prioridades()).fillna(config.PRIORIDAD_POR_DEFECTO)
             filtered['Fecha_Orden'] = pd.to_datetime(
                 filtered['F1_Fecha'], format=config.FORMATO_FECHA, errors='coerce'
             )
             filtered.sort_values(by=['Prioridad', 'Fecha_Orden'], ascending=[True, True], inplace=True)
 
         return filtered
+
+    def registros(self):
+        """Todas las boletas como lista de diccionarios (valores vacíos -> '')."""
+        return self.df.fillna('').to_dict('records')
 
     def get_next_id(self):
         """Calcula el siguiente ID de boleta disponible."""

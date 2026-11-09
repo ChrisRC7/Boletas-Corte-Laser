@@ -30,6 +30,39 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   - Al escribir la **cuenta** o el **carné** en la Recepción se llenan nombre del
     usuario, cuenta, carrera, carné y teléfono: primero con los datos de boletas anteriores del
     mismo usuario y, si no tiene, con los del AD.
+  - En **NOMBRE DEL USUARIO** también se puede escribir el correo o el carné: se
+    pasan a su campo, se autocompleta todo y el nombre se sustituye por el real.
+  - Si se cambia el carné o la cuenta por los de **otra persona**, sus datos
+    reemplazan a los anteriores (no hace falta borrar los campos a mano).
+- **Color del filamento** en la Recepción: lista con los colores disponibles del
+  material elegido (se pueden marcar como agotados en la Configuración).
+- **Tipo de impresora** (MK4S, Core One Plus o Cualquiera) en la Revisión; la
+  Impresión muestra dónde imprimir y solo deja elegir impresoras de ese tipo.
+  Se puede desactivar desde la Configuración.
+- **⚙ Configuración**: edita precio, materiales, colores, resoluciones,
+  rellenos, usos/prioridades, impresoras y tipos **sin recompilar**. Se guarda
+  en `configuracion.json` (junto al Excel); "Restaurar valores por defecto"
+  vuelve a lo de `config.py`.
+- **📋 Orden de impresión**: calcula e imprime el orden óptimo del día (ver abajo).
+
+### Orden de impresión del día
+
+Reparte los trabajos listos (Revisión completa o Reimpresión) entre las
+impresoras activas:
+
+- Orden por **prioridad de uso** y, a igual prioridad, el **más antiguo**.
+- Cada trabajo va a una impresora del **tipo pedido** en la Revisión.
+- Las impresoras **ocupadas** (boletas en Impresión) quedan libres al terminar
+  (inicio + tiempo estimado) y conservan su filamento cargado.
+- **Un rollo abierto por material y color**: los trabajos de un mismo filamento
+  no se imprimen a la vez en dos impresoras, salvo que la demanda del día supere
+  un rollo (`GRAMOS_POR_ROLLO`, 1 kg): entonces se permiten
+  `ceil(gramos / 1000)` rollos a la vez.
+- A igual hora de inicio se prefiere la impresora que ya tiene ese filamento.
+
+En la ventana se pueden sacar impresoras del plan y recalcular. **Imprimir**
+manda el reporte a la impresora predeterminada de Windows. Los trabajos sin
+gramos/tiempo aparecen en "Sin programar".
 
 ### El formulario de una boleta
 
@@ -38,6 +71,10 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   ya tiene operador y **● FASE ACTUAL** en la fase en curso.
 - Las opciones (uso, material, resolución, relleno, impresora...) se marcan
   como en el papel, con casillas.
+- **Las fases posteriores a la actual están bloqueadas (🔒)**: no se pueden
+  abrir hasta completar la fase actual y pulsar **Siguiente**. El selector de
+  Fase Actual tampoco deja saltar fases incompletas; la **Cancelación** solo
+  exige la Recepción completa.
 - La barra inferior tiene **Anterior / Siguiente** (valida los campos
   obligatorios antes de avanzar), el selector de **Fase Actual**,
   **Expandir todo / Contraer todo** y **Guardar Cambios**.
@@ -68,7 +105,10 @@ Boletas Corte Laser/
     ├── main.py                # Punto de entrada (arranca la app)
     ├── boletas/               # Paquete de la aplicación
     │   ├── __init__.py
-    │   ├── config.py          # Constantes: fases, columnas, opciones, precio
+    │   ├── config.py          # Constantes: fases, columnas, opciones, precio (valores por defecto)
+    │   ├── ajustes.py         # Lee/guarda configuracion.json (opciones editables sin recompilar)
+    │   ├── catalogo.py        # Consultas sobre las opciones (usos, colores, impresoras)
+    │   ├── planificador.py    # Orden óptimo de impresión del día
     │   ├── repository.py      # Acceso a datos (Excel)        [patrón Repository]
     │   ├── services.py        # Lógica de negocio (precio, fase, autocompletado de usuarios)
     │   ├── directorio_ad.py   # Consultas al Active Directory (solo lectura)
@@ -77,6 +117,9 @@ Boletas Corte Laser/
     │       ├── theme.py       # Colores de cada fase y fuentes (imitan la boleta)
     │       ├── main_window.py # Ventana principal (listado, búsqueda, filtros)
     │       ├── boleta_form.py # Orquestador del formulario (arma secciones, navega, guarda)
+    │       ├── config_window.py # Ventana de Configuración
+    │       ├── plan_window.py # Ventana del orden de impresión
+    │       ├── tabla_editable.py # Tabla de filas editable (usada en la Configuración)
     │       └── phases/        # Una fase por archivo (cada sección es independiente)
     │           ├── __init__.py            # Registro de fases (PHASE_CLASSES)
     │           ├── base.py                # PhaseSection: clase base de una fase
@@ -201,10 +244,9 @@ necesita en tiempo de ejecución; sin esa opción el `.exe` no abre.
 | Quiero…                                   | Edito…                                              |
 |-------------------------------------------|-----------------------------------------------------|
 | Añadir/renombrar una fase                 | `config.py` → `FASES` (y `REQUIRED_FIELDS`)         |
-| Cambiar el precio por gramo               | `config.py` → `PRECIO_POR_GRAMO`                    |
-| Añadir una opción de material             | `config.py` → `MATERIAL_OPTIONS`                    |
-| Añadir una opción de uso                  | `config.py` → `USO_OPTIONS`, y con **el mismo texto** en `PRIORIDAD_USO` (y en `USO_CON_DETALLE` si pide detalle) |
-| Cambiar la prioridad de impresión         | `config.py` → `PRIORIDAD_USO`                       |
+| Cambiar precio, materiales, colores, usos/prioridades, impresoras... | **⚙ Configuración** en la app (sin recompilar). Los valores por defecto están en `config.py` (`PRECIO_POR_GRAMO`, `MATERIAL_OPTIONS`, `COLORES_POR_MATERIAL`, `USOS`, `IMPRESORAS`, `TIPOS_IMPRESORA`...) |
+| Hacer editable un valor nuevo de `config.py` | Añadirlo a `ajustes.EDITABLES` y a `ui/config_window.py` |
+| Cambiar el algoritmo del orden de impresión | `planificador.py`                                |
 | Cambiar qué campos son obligatorios       | `config.py` → `REQUIRED_FIELDS`                     |
 | Cambiar cómo se guardan/leen los datos    | `repository.py`                                     |
 | Cambiar/añadir una **fase** del formulario| `ui/phases/faseN_*.py` (+ registro y `config.py`)   |

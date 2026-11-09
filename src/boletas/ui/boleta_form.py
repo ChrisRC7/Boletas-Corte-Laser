@@ -4,7 +4,12 @@ Imita la boleta impresa: todas las fases están en la misma ventana, una debajo 
 otra, cada una con su barra de color que se despliega u oculta al hacer clic.
 
 Esta clase es el **orquestador**: arma la ventana, la navegación entre fases y la
-carga/guardado de datos, pero NO conoce los detalles de cada fase. Cada fase es
+carga/guardado de datos, pero NO conoce los detalles de cada fase.
+
+Reglas de navegación: solo se puede usar la fase actual y las anteriores. Para
+pasar a una fase posterior (con "Siguiente" o con el selector de Fase Actual)
+la fase actual, y las intermedias, tienen que estar completas. Las fases de
+`config.FASES_SIN_ORDEN` (Cancelación) solo exigen la Recepción completa. Cada fase es
 una clase independiente en `ui/phases/` (ver ese paquete). Para cambiar o añadir
 una fase no se toca este archivo, solo el de la fase correspondiente.
 """
@@ -17,7 +22,7 @@ from datetime import datetime
 import customtkinter as ctk
 import pandas as pd
 
-from .. import config
+from .. import catalogo, config
 from ..services import PhaseDetector
 from . import theme
 from .phases import build_phases
@@ -31,6 +36,8 @@ class BoletaForm(ctk.CTkToplevel):
         self.parent_app = parent_app
         self.boleta_id = boleta_id
         self.vars = {'Fase Actual': tk.StringVar(value=config.FASES[0])}
+        # Última fase actual aceptada (para revertir el selector si no se puede avanzar).
+        self._fase_confirmada = 0
 
         if self.boleta_id:
             self.title(f"Editando Boleta #{self.boleta_id}")
@@ -94,7 +101,7 @@ class BoletaForm(ctk.CTkToplevel):
         self.fase_menu = ctk.CTkOptionMenu(
             controls, values=config.FASES, variable=self.vars['Fase Actual'], width=220,
             font=theme.font(12), dynamic_resizing=False,
-            command=lambda _choice: self._on_current_phase_changed(),
+            command=self._on_fase_menu,
         )
         self.fase_menu.pack(side="left")
 
@@ -159,9 +166,13 @@ class BoletaForm(ctk.CTkToplevel):
         if altura > 0:
             canvas.yview_moveto(phase.container.winfo_y() / altura)
 
+    def phase_accessible(self, index):
+        """Solo se pueden usar la fase actual y las anteriores."""
+        return index <= self.current_index()
+
     def expand_all(self):
         for phase in self.phases:
-            phase.expand()
+            phase.expand()  # Las fases bloqueadas no se despliegan.
 
     def collapse_all(self):
         for phase in self.phases:
@@ -172,12 +183,36 @@ class BoletaForm(ctk.CTkToplevel):
         self.vars['Fase Actual'].set(config.FASES[index])
         self._on_current_phase_changed()
 
+    def _on_fase_menu(self, eleccion):
+        """Cambio desde el selector: para ir hacia adelante hay que cumplir las fases previas."""
+        destino = config.FASES.index(eleccion)
+        if destino > self._fase_confirmada and not self._puede_avanzar(self._fase_confirmada, destino):
+            self.vars['Fase Actual'].set(config.FASES[self._fase_confirmada])
+            return
+        self._on_current_phase_changed()
+
+    def _puede_avanzar(self, origen, destino):
+        """Valida las fases que hay que completar para pasar de `origen` a `destino`."""
+        if config.FASES[destino] in config.FASES_SIN_ORDEN:
+            requeridas = [0]  # Solo la Recepción.
+        else:
+            requeridas = range(origen, destino)
+        for indice in requeridas:
+            if not self._validate_phase(indice):
+                if self.phase_accessible(indice):
+                    self.show_phase(indice)
+                return False
+        return True
+
     def _on_current_phase_changed(self):
         index = self.current_index()
+        self._fase_confirmada = index
         color = theme.PHASE_COLORS[index]
         self.fase_menu.configure(fg_color=color, button_color=theme.darken(color, 0.1),
                                  button_hover_color=theme.darken(color, 0.25))
         for phase in self.phases:
+            if phase.is_locked():
+                phase.collapse()
             phase.refresh_header()
         self.prev_button.configure(state='normal' if index > 0 else 'disabled')
         self.next_button.configure(state='normal' if index < len(config.FASES) - 1 else 'disabled')
@@ -199,21 +234,42 @@ class BoletaForm(ctk.CTkToplevel):
 
     def _validate_phase(self, phase_index):
         """Valida los campos obligatorios de una fase. True si está completa."""
-        required_keys = config.REQUIRED_FIELDS.get(phase_index, [])
-        missing_fields = [
-            config.FIELD_NAMES.get(key, key)
-            for key in required_keys
-            if key in self.vars and not self.vars[key].get().strip()
-        ]
+        missing_fields = self._campos_faltantes(phase_index)
         if missing_fields:
             messagebox.showwarning(
                 "Campos Obligatorios",
-                "Por favor, complete los siguientes campos antes de continuar:\n\n"
+                f"Por favor, complete los siguientes campos de la fase "
+                f"«{config.FASES[phase_index]}» antes de continuar:\n\n"
                 + "\n".join(f"• {name}" for name in missing_fields),
                 parent=self,
             )
             return False
         return True
+
+    def _campos_faltantes(self, phase_index):
+        """Nombres legibles de los campos obligatorios vacíos de una fase."""
+        return [
+            config.FIELD_NAMES.get(key, key)
+            for key in catalogo.campos_obligatorios(phase_index)
+            if key in self.vars and not self.vars[key].get().strip()
+        ]
+
+    def _fase_al_abrir(self, boleta_data):
+        """Fase con la que se abre una boleta guardada.
+
+        Normalmente la más avanzada con operador (`PhaseDetector`). Si la fase
+        guardada en `Fase Actual` va más adelante (se pulsó "Siguiente" y se
+        guardó) y las fases previas están completas, se respeta esa.
+        """
+        detectada = config.FASES.index(PhaseDetector.detectar_fase_actual(boleta_data))
+        guardada = str(boleta_data.get('Fase Actual', '') or '')
+        if guardada not in config.FASES or config.FASES.index(guardada) <= detectada:
+            return detectada
+        destino = config.FASES.index(guardada)
+        previas = [0] if guardada in config.FASES_SIN_ORDEN else range(destino)
+        if all(not self._campos_faltantes(i) for i in previas):
+            return destino
+        return detectada
 
     # --- Carga / guardado --------------------------------------------------
     def populate_form(self):
@@ -236,8 +292,7 @@ class BoletaForm(ctk.CTkToplevel):
         for phase in self.phases:
             phase.on_populate(boleta_data)
 
-        fase_actual = PhaseDetector.detectar_fase_actual(boleta_data)
-        self.set_current_phase(config.FASES.index(fase_actual))
+        self.set_current_phase(self._fase_al_abrir(boleta_data))
 
     def guardar_cambios(self):
         # Validar todas las fases que ya tienen operador asignado.

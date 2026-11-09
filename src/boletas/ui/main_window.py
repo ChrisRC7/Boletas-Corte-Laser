@@ -2,7 +2,8 @@
 
 Esta clase es el "controlador" de la interfaz: reacciona a los botones y delega
 el acceso a datos en `BoletaRepository` y la edición en `BoletaForm`. No conoce
-detalles de pandas ni del Excel.
+detalles de pandas ni del Excel. También abre la Configuración y el Orden de
+impresión del día.
 """
 
 import tkinter as tk
@@ -10,12 +11,15 @@ from tkinter import ttk, messagebox
 
 import customtkinter as ctk
 
-from .. import config
+from .. import ajustes, config
 from ..directorio_ad import DirectorioAD
+from ..planificador import PlanificadorService
 from ..repository import BoletaRepository
 from ..services import UsuarioService
 from . import theme
 from .boleta_form import BoletaForm
+from .config_window import ConfigWindow
+from .plan_window import PlanWindow
 
 
 class App(ctk.CTk):
@@ -30,6 +34,9 @@ class App(ctk.CTk):
         self.geometry("1200x650")
         self.configure(fg_color=theme.BG)
 
+        # Los ajustes guardados desde la interfaz se aplican antes de usar config.
+        error_ajustes = ajustes.cargar()
+
         self.repo = BoletaRepository()
         self.repo.load()
         self.usuarios = UsuarioService(self.repo, DirectorioAD())
@@ -37,6 +44,8 @@ class App(ctk.CTk):
         self.create_widgets()
         self.show_all_boletas()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        if error_ajustes:
+            self.after(300, lambda: messagebox.showwarning("Configuración", error_ajustes))
 
     # --- Ciclo de vida ----------------------------------------------------
     def on_closing(self):
@@ -72,6 +81,12 @@ class App(ctk.CTk):
         ctk.CTkButton(banner, text="🗑  Borrar", width=110, font=theme.font(13, "bold"),
                       fg_color=theme.DANGER, hover_color=theme.darken(theme.DANGER),
                       command=self.delete_selected_boleta).pack(side="right", padx=6)
+        ctk.CTkButton(banner, text="📋  Orden de impresión", width=170, font=theme.font(13, "bold"),
+                      fg_color=theme.PHASE_COLORS[2], hover_color=theme.darken(theme.PHASE_COLORS[2]),
+                      command=self.open_plan_window).pack(side="right", padx=6)
+        ctk.CTkButton(banner, text="⚙  Configuración", width=150, font=theme.font(13, "bold"),
+                      fg_color=theme.NEUTRAL, hover_color=theme.darken(theme.NEUTRAL),
+                      command=self.open_config_window).pack(side="right", padx=6)
 
         # Búsqueda
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -195,6 +210,12 @@ class App(ctk.CTk):
     # --- Acciones sobre una boleta ----------------------------------------
     def open_new_boleta_window(self):
         BoletaForm(self)
+
+    def open_config_window(self):
+        ConfigWindow(self, al_guardar=self.show_all_boletas)
+
+    def open_plan_window(self):
+        PlanWindow(self, PlanificadorService(self.repo))
 
     def on_double_click(self, event):
         item_id = self.tree.focus()

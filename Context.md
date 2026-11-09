@@ -3,7 +3,7 @@
 Contexto del proyecto para retomar el trabajo entre sesiones. Las reglas de
 trabajo están en [CLAUDE.md](CLAUDE.md).
 
-_Última revisión: 2026-10-26._
+_Última revisión: 2026-11-09._
 
 ---
 
@@ -22,9 +22,9 @@ _Última revisión: 2026-10-26._
 
 | # | Fase | Campos clave |
 |---|------|--------------|
-| 1 | Recepción | operador, fecha/hora, nombre del usuario, cuenta, carrera, carné, teléfono, uso (+detalle), pieza, copias, material, resolución, relleno |
-| 2 | Revisión y Preparación | gramos de material, tiempo de impresión, **precio** (= g × `PRECIO_POR_GRAMO`, 50 ₡) |
-| 3 | Impresión | confirmación del usuario, impresora (1–7), envío de correo, **lista de fallos** (solo se agregan, no se eliminan), **notas de impresión** |
+| 1 | Recepción | operador, fecha/hora, nombre del usuario, cuenta, carrera, carné, teléfono, uso (+detalle), pieza, **color del filamento**, observaciones, copias, material, resolución, relleno |
+| 2 | Revisión y Preparación | gramos de material, tiempo de impresión, **precio** (= g × `PRECIO_POR_GRAMO`, 50 ₡), **tipo de impresora** (MK4S / Core One Plus / Cualquiera) |
+| 3 | Impresión | confirmación del usuario, impresora (solo del tipo pedido), envío de correo, **lista de fallos** (solo se agregan, no se eliminan), **notas de impresión** |
 | 4 | Despegado de Piezas | observaciones, ¿imprimió bien?, correo |
 | 5 | Entrega de Piezas | verificación de cobro, recibido conforme |
 | 6 | Reimpresión | observaciones, gramos, tiempo, precio |
@@ -35,7 +35,13 @@ _Última revisión: 2026-10-26._
 - En Revisión e Impresión el listado se ordena por prioridad de uso
   (Curso/Evento → Asistencia → Personal) y luego por fecha de recepción.
 - Validación de campos obligatorios al avanzar de fase y al guardar
-  (`config.REQUIRED_FIELDS`).
+  (`catalogo.campos_obligatorios`, basado en `config.REQUIRED_FIELDS`).
+- **Bloqueo de fases:** solo se usan la fase actual y las anteriores; para
+  avanzar hay que completar la actual. Cancelación (`FASES_SIN_ORDEN`) solo
+  exige la Recepción. Al abrir una boleta se respeta la `Fase Actual` guardada
+  si las fases previas están completas.
+- Columnas nuevas: `Color_Filamento` (F1) y `Tipo_Impresora` (F2); el
+  repositorio las añade a Excels viejos al cargar.
 
 ## Persistencia actual
 
@@ -66,8 +72,13 @@ _Última revisión: 2026-10-26._
 7. ~~Quitar la opción de eliminar fallos~~ ✅ Hecho.
 8. ~~Renombrar Fase 7 "Cancelada" → "Cancelación"~~ ✅ Hecho (el repositorio
    migra los valores viejos al cargar, vía `config.FASES_RENOMBRADAS`).
-9. Editor de valores configurables (material, resolución, relleno, impresora)
-   desde un archivo, posiblemente como app aparte.
+9. ~~Editor de valores configurables~~ ✅ Hecho: ventana ⚙ Configuración
+   dentro de la app, guarda en `configuracion.json` (`ajustes.py`).
+
+Otras funciones (2026-11-09): **orden de impresión del día** (`planificador.py`,
+un rollo abierto por material+color salvo demanda > `GRAMOS_POR_ROLLO`),
+colores por material, tipo de impresora, bloqueo de fases, autocompletado
+desde el campo Nombre y reemplazo de datos al cambiar de persona.
 
 ## Active Directory (implementado)
 
@@ -84,7 +95,10 @@ _Última revisión: 2026-10-26._
 - **Cuenta / Carné** (Fase 1): llenan nombre del usuario (`Nombre_Usuario`),
   cuenta, carrera, carné y teléfono. Primero se buscan boletas anteriores del usuario
   (`BoletaRepository.buscar_datos_usuario`); si no hay, se consulta el AD. Solo
-  se llenan campos vacíos. Los estudiantes no suelen tener teléfono en el AD.
+  se busca si el valor cambió; los datos encontrados **reemplazan** a los
+  anteriores y se borran los autocompletados que el usuario nuevo no tenga
+  (lo escrito a mano se conserva). En **Nombre del usuario** también se acepta
+  correo o carné. Los estudiantes no suelen tener teléfono en el AD.
 - Las consultas al AD corren en segundo plano (`BoletaForm.en_segundo_plano`).
   Si la PC no está en el dominio, simplemente no se autocompleta nada.
 
@@ -93,5 +107,7 @@ _Última revisión: 2026-10-26._
 - **SQLite / Jetson:** reemplazar solo `repository.py` manteniendo la misma
   interfaz pública (`load`, `save`, `all`, `search`, `filter_by_phase`,
   `get_next_id`, `get_by_id`, `add`, `update`, `delete`). Así la UI no cambia.
-- **Opciones editables (punto 9):** mover las listas de `config.py` a un archivo
-  (JSON/TOML) leído por `config.py`, para que el resto del código no cambie.
+- **Opciones editables:** `config.py` tiene los valores por defecto;
+  `ajustes.cargar()` (al arrancar `App`) aplica `configuracion.json` encima.
+  Nada debe capturar valores de `config` al importar (p. ej. como valor por
+  defecto de un parámetro): leerlos en tiempo de ejecución.

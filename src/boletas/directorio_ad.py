@@ -82,8 +82,13 @@ def _escapar_ldap(valor):
 class DirectorioAD:
     """Búsquedas de estudiantes en el Active Directory. Solo lectura."""
 
-    def __init__(self, timeout=config.AD_TIMEOUT_SEGUNDOS):
-        self.timeout = timeout
+    def __init__(self, timeout=None):
+        self._timeout = timeout
+
+    @property
+    def timeout(self):
+        # Se lee en cada búsqueda para respetar el valor de la Configuración.
+        return self._timeout or config.AD_TIMEOUT_SEGUNDOS
 
     # --- API pública (solo consultas) -------------------------------------
     def buscar_por_carne(self, carne):

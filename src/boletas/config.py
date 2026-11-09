@@ -4,6 +4,13 @@ Centraliza en un único lugar todo lo que define el "qué" del dominio (fases,
 columnas del Excel, opciones de los desplegables, valores por defecto y
 precio). Así, para cambiar una fase o una opción no hay que tocar la lógica ni
 la interfaz: basta con editar este archivo.
+
+Los valores marcados como "editables" (ver `ajustes.EDITABLES`) son solo los
+valores **por defecto**: desde la ventana "⚙ Configuración" de la aplicación se
+pueden cambiar y se guardan en `configuracion.json`, que se aplica encima de
+este archivo al arrancar. Así se pueden ajustar sin recompilar el `.exe`.
+Las consultas derivadas (opciones de uso, colores disponibles...) están en
+`catalogo.py`.
 """
 
 # --- Persistencia ---------------------------------------------------------
@@ -22,6 +29,9 @@ CAMPOS_DATOS_USUARIO = ['Nombre_Usuario', 'Cuenta', 'Carrera', 'Carné', 'Teléf
 
 # Precio cobrado por cada gramo de material usado (en colones).
 PRECIO_POR_GRAMO = 50
+
+# Gramos de material que trae un rollo de filamento (para el orden de impresión).
+GRAMOS_POR_ROLLO = 1000
 
 
 # --- Fases del flujo de una boleta ----------------------------------------
@@ -46,14 +56,14 @@ FASES_RENOMBRADAS = {
 # Fases en las que aplica el ordenamiento por prioridad de impresión.
 FASES_CON_PRIORIDAD = ["2. Revisión y Preparación", "3. Impresión"]
 
-# Prioridad de impresión según el tipo de uso (menor número = más prioritario).
-# Las claves deben coincidir exactamente con USO_OPTIONS.
-PRIORIDAD_USO = {
-    "1. Curso": 1,
-    "1. Evento de participación": 1,
-    "2. Asistencia": 2,
-    "3. Personal": 3,
-}
+# Tipos de uso, en el orden en que se muestran. `prioridad`: menor número =
+# más prioritario. `detalle`: habilita el campo "Indicar" (curso/evento).
+USOS = [
+    {"nombre": "1. Curso", "prioridad": 1, "detalle": True},
+    {"nombre": "1. Evento de participación", "prioridad": 1, "detalle": True},
+    {"nombre": "2. Asistencia", "prioridad": 2, "detalle": False},
+    {"nombre": "3. Personal", "prioridad": 3, "detalle": False},
+]
 PRIORIDAD_POR_DEFECTO = 4
 
 
@@ -64,9 +74,10 @@ COLUMNAS = [
     # Fase 1
     'F1_Operador', 'F1_Fecha', 'F1_Hora', 'Nombre_Usuario', 'Cuenta', 'Carrera', 'Carné', 'Teléfono',
     'Uso', 'Uso_Detalle', 'Nombre_Pieza', 'Observaciones_Usuario', 'Cantidad_Copias',
-    'Material', 'Material_Otro_Detalle', 'Resolucion', 'Relleno', 'Autoriza_Recoger',
+    'Material', 'Material_Otro_Detalle', 'Color_Filamento', 'Resolucion', 'Relleno', 'Autoriza_Recoger',
     # Fase 2
     'F2_Operador', 'F2_Fecha', 'F2_Hora', 'Uso_Material_g', 'Tiempo_Impresion_HHMM', 'Precio',
+    'Tipo_Impresora',
     # Fase 3
     'F3_Operador', 'F3_Fecha', 'F3_Hora', 'Confirmacion_Usuario', 'Impresora_Num', 'F3_Envio_Correo',
     'Fallo_Lista', 'F3_Notas',
@@ -96,11 +107,11 @@ FIELD_NAMES = {
     'Uso': 'Uso', 'Nombre_Pieza': 'Nombre de la Pieza', 'Material': 'Material',
     'F1_Fecha': 'Fecha (Recepción)', 'F1_Hora': 'Hora (Recepción)',
     'Teléfono': 'Teléfono', 'Cantidad_Copias': 'Cantidad de Copias',
-    'Resolucion': 'Resolución', 'Relleno': 'Relleno',
+    'Resolucion': 'Resolución', 'Relleno': 'Relleno', 'Color_Filamento': 'Color del Filamento',
 
     'F2_Operador': 'Operador (Revisión)', 'Uso_Material_g': 'Uso de Material (g)',
     'F2_Fecha': 'Fecha (Revisión)', 'F2_Hora': 'Hora (Revisión)',
-    'Tiempo_Impresion_HHMM': 'Tiempo de Impresión',
+    'Tiempo_Impresion_HHMM': 'Tiempo de Impresión', 'Tipo_Impresora': 'Tipo de Impresora',
 
     'F3_Operador': 'Operador (Impresión)', 'Impresora_Num': 'Número de Impresora',
     'F3_Fecha': 'Fecha (Impresión)', 'F3_Hora': 'Hora (Impresión)',
@@ -122,9 +133,11 @@ FIELD_NAMES = {
 }
 
 # Campos obligatorios por índice de fase (0 = Recepción, 1 = Revisión, ...).
+# 'Tipo_Impresora' solo se exige si USAR_TIPO_IMPRESORA está activo (lo
+# resuelve `catalogo.campos_obligatorios`).
 REQUIRED_FIELDS = {
-    0: ['F1_Operador', 'F1_Fecha', 'F1_Hora', 'Carné', 'Cuenta', 'Uso', 'Nombre_Pieza', 'Teléfono', 'Cantidad_Copias', 'Material', 'Resolucion', 'Relleno'],
-    1: ['F2_Operador', 'F2_Fecha', 'F2_Hora', 'Uso_Material_g', 'Tiempo_Impresion_HHMM'],
+    0: ['F1_Operador', 'F1_Fecha', 'F1_Hora', 'Carné', 'Cuenta', 'Uso', 'Nombre_Pieza', 'Teléfono', 'Cantidad_Copias', 'Material', 'Color_Filamento', 'Resolucion', 'Relleno'],
+    1: ['F2_Operador', 'F2_Fecha', 'F2_Hora', 'Uso_Material_g', 'Tiempo_Impresion_HHMM', 'Tipo_Impresora'],
     2: ['F3_Operador', 'F3_Fecha', 'F3_Hora', 'Impresora_Num'],
     3: ['F4_Operador', 'F4_Fecha', 'F4_Hora'],
     4: ['F5_Operador', 'F5_Fecha', 'F5_Hora'],
@@ -133,11 +146,12 @@ REQUIRED_FIELDS = {
 }
 
 
-# --- Opciones de los desplegables del formulario --------------------------
-USO_OPTIONS = ["1. Curso", "1. Evento de participación", "2. Asistencia", "3. Personal"]
-# Valores de "Uso" que habilitan el campo de detalle (curso/evento).
-USO_CON_DETALLE = ["1. Curso", "1. Evento de participación"]
+# Fases a las que se puede pasar desde cualquier punto (sin completar las
+# intermedias), siempre que la Recepción esté completa.
+FASES_SIN_ORDEN = ["7. Cancelación"]
 
+
+# --- Opciones de los desplegables del formulario --------------------------
 MATERIAL_OPTIONS = ["PLA", "PETG", "ABS", "Flex (TPU)", "ASA", "Otro"]
 MATERIAL_OTRO = "Otro"
 
@@ -147,7 +161,56 @@ RESOLUCION_DEFAULT = '0.2'
 RELLENO_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]
 RELLENO_DEFAULT = '10'
 
-IMPRESORA_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
+# Colores de filamento por material. `disponible` = False lo oculta de la
+# lista (p. ej. cuando se acaba ese color). Un material sin colores (como
+# "Otro") permite escribir el color a mano.
+COLORES_POR_MATERIAL = {
+    "PLA": [
+        {"color": "Negro", "disponible": True},
+        {"color": "Blanco", "disponible": True},
+        {"color": "Gris", "disponible": True},
+        {"color": "Rojo", "disponible": True},
+        {"color": "Azul", "disponible": True},
+        {"color": "Verde", "disponible": True},
+        {"color": "Amarillo", "disponible": True},
+    ],
+    "PETG": [
+        {"color": "Negro", "disponible": True},
+        {"color": "Blanco", "disponible": True},
+        {"color": "Transparente", "disponible": True},
+    ],
+    "ABS": [
+        {"color": "Negro", "disponible": True},
+        {"color": "Blanco", "disponible": True},
+    ],
+    "Flex (TPU)": [
+        {"color": "Negro", "disponible": True},
+        {"color": "Blanco", "disponible": True},
+    ],
+    "ASA": [
+        {"color": "Negro", "disponible": True},
+    ],
+}
+
+# --- Impresoras -------------------------------------------------------------
+# Tipos (modelos) de impresora. Si USAR_TIPO_IMPRESORA es False, en la Revisión
+# no se pide el tipo y en la Impresión se puede usar cualquier impresora.
+TIPOS_IMPRESORA = ["MK4S", "Core One Plus"]
+USAR_TIPO_IMPRESORA = True
+# Valor de "Tipo de impresora" que significa que sirve cualquiera (ambas).
+TIPO_IMPRESORA_CUALQUIERA = "Cualquiera"
+
+# Impresoras del laboratorio. `activa` = False la saca de la lista (p. ej. en
+# mantenimiento) sin perder su número.
+IMPRESORAS = [
+    {"numero": 1, "tipo": "MK4S", "activa": True},
+    {"numero": 2, "tipo": "MK4S", "activa": True},
+    {"numero": 3, "tipo": "MK4S", "activa": True},
+    {"numero": 4, "tipo": "MK4S", "activa": True},
+    {"numero": 5, "tipo": "Core One Plus", "activa": True},
+    {"numero": 6, "tipo": "Core One Plus", "activa": True},
+    {"numero": 7, "tipo": "Core One Plus", "activa": True},
+]
 
 # Cómo confirmó el usuario el inicio de la impresión (Fase 3).
 CONFIRMACION_OPTIONS = ["Correo Institucional", "En persona (requiere firma)"]

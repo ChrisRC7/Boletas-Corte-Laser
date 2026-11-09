@@ -7,7 +7,9 @@ crear) un único archivo y registrarlo en `phases/__init__.py`, sin tocar el
 código de las demás fases ni el del formulario.
 
 Visualmente cada fase es una barra de color (como en la boleta impresa) que al
-hacer clic despliega u oculta su contenido.
+hacer clic despliega u oculta su contenido. Las fases posteriores a la fase
+actual están **bloqueadas** (🔒, barra atenuada): no se pueden desplegar hasta
+completar la fase actual y avanzar con "Siguiente".
 
 Contrato que puede implementar cada fase:
     index              -> índice de la fase (0..6), enlaza con config.FASES (obligatorio)
@@ -19,6 +21,7 @@ El título y el color de la barra salen de config.FASES y theme.PHASE_COLORS.
 """
 
 import tkinter as tk
+from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -90,14 +93,25 @@ class PhaseSection:
     def build_widgets(self, frame):
         raise NotImplementedError
 
+    def is_locked(self):
+        """True si la fase todavía no se puede usar (está después de la actual)."""
+        return not self.form.phase_accessible(self.index)
+
     def toggle(self):
         if self.expanded:
             self.collapse()
+        elif self.is_locked():
+            actual = config.FASES[self.form.current_index()]
+            messagebox.showinfo(
+                "Fase bloqueada",
+                f"Primero complete la fase actual ({actual}) y pulse «Siguiente».",
+                parent=self.form,
+            )
         else:
             self.expand()
 
     def expand(self):
-        if not self.expanded:
+        if not self.expanded and not self.is_locked():
             self.body.pack(fill="x")
             self.expanded = True
             self.refresh_header()
@@ -109,14 +123,17 @@ class PhaseSection:
             self.refresh_header()
 
     def refresh_header(self):
-        """Actualiza la barra: flecha, ✓ si tiene operador y marca de fase actual."""
-        arrow = "▼" if self.expanded else "▶"
+        """Actualiza la barra: flecha o candado, ✓ si tiene operador y marca de fase actual."""
+        locked = self.is_locked()
+        arrow = "🔒" if locked else ("▼" if self.expanded else "▶")
         text = f"{arrow}    {self.title}"
         if self.is_started():
             text += "   ✓"
         if self.form.current_index() == self.index:
             text += "      ●  FASE ACTUAL"
-        self.header.configure(text=text)
+        color = theme.lighten(self.color, 0.55) if locked else self.color
+        self.header.configure(text=text, fg_color=color,
+                              hover_color=color if locked else self.hover_color)
 
     def is_started(self):
         operador = self.vars.get(f'F{self.index + 1}_Operador')
@@ -244,17 +261,28 @@ class PhaseSection:
         var.trace_add('write', desde_variable)
         return box
 
-    def radio_group(self, parent, key, options, per_row=None, command=None, default="", item_width=70):
-        """Grupo de opciones (como las casillas de la boleta) ligado a `vars[key]`."""
+    def radio_group(self, parent, key, options, per_row=None, command=None, default="", item_width=70,
+                    labels=None):
+        """Grupo de opciones (como las casillas de la boleta) ligado a `vars[key]`.
+
+        `labels` (opcional) da un texto distinto al valor guardado de cada
+        opción. Devuelve un diccionario valor -> botón.
+        """
         self.vars[key] = tk.StringVar(value=default)
-        per_row = per_row or len(options)
+        per_row = per_row or len(options) or 1
+        labels = labels or {}
+        buttons = {}
         for i, option in enumerate(options):
-            ctk.CTkRadioButton(
-                parent, text=str(option), value=str(option), variable=self.vars[key], command=command,
+            button = ctk.CTkRadioButton(
+                parent, text=labels.get(str(option), str(option)), value=str(option),
+                variable=self.vars[key], command=command,
                 width=item_width, radiobutton_width=16, radiobutton_height=16,
                 border_width_unchecked=2, border_width_checked=5,
                 fg_color=self.color, hover_color=self.hover_color, font=theme.font(12),
-            ).grid(row=i // per_row, column=i % per_row, sticky="w", padx=(0, 10), pady=2)
+            )
+            button.grid(row=i // per_row, column=i % per_row, sticky="w", padx=(0, 10), pady=2)
+            buttons[str(option)] = button
+        return buttons
 
     def checkbox(self, parent, key, text, text_color=theme.TEXT):
         """Casilla de verificación ligada a una BooleanVar en `vars[key]`."""

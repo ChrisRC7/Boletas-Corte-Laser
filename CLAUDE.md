@@ -68,12 +68,16 @@ se pueden probar sin abrir ventanas.
 
 ```
 src/main.py                 → arranca boletas.ui.main_window.App
-src/boletas/config.py       → FASES, COLUMNAS, REQUIRED_FIELDS, opciones, precio
+src/boletas/config.py       → FASES, COLUMNAS, REQUIRED_FIELDS, opciones, precio (valores por defecto)
+src/boletas/ajustes.py      → configuracion.json: opciones editables desde la UI, sin recompilar
+src/boletas/catalogo.py     → consultas sobre opciones (usos/prioridad, colores, impresoras, obligatorios)
+src/boletas/planificador.py → orden óptimo de impresión del día (sin UI)
 src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre el Excel)
 src/boletas/services.py     → PricingService, PhaseDetector, UsuarioService (historial → AD)
 src/boletas/directorio_ad.py → DirectorioAD: consultas al AD (solo lectura, vía PowerShell)
 src/boletas/ui/main_window.py → App: listado, búsqueda, filtro por fase (controlador)
-src/boletas/ui/boleta_form.py → BoletaForm: orquesta las secciones, navega, valida, guarda
+src/boletas/ui/boleta_form.py → BoletaForm: orquesta las secciones, navega (bloqueo de fases), valida, guarda
+src/boletas/ui/config_window.py · plan_window.py · tabla_editable.py → Configuración y Orden de impresión
 src/boletas/ui/phases/      → una PhaseSection por fase + registro PHASE_CLASSES
 src/boletas/ui/theme.py     → colores de cada fase y fuentes
 ```
@@ -99,8 +103,10 @@ de datos no importa nada de la UI.
   **español**.
 - Cada módulo empieza con un docstring explicando su responsabilidad; las
   secciones dentro de una clase se separan con comentarios `# --- Sección ---`.
-- Los textos de opciones (`USO_OPTIONS`, `PRIORIDAD_USO`, `USO_CON_DETALLE`)
-  deben coincidir **exactamente**.
+- Los valores editables de `config.py` (`ajustes.EDITABLES`) se pueden
+  sobrescribir en tiempo de ejecución: léelos siempre como `config.X` al
+  usarlos, nunca como valor por defecto de un parámetro ni con
+  `from config import X`. Para preguntas derivadas usa `catalogo.py`.
 - Los nombres de fase (`config.FASES`) se guardan tal cual en la columna
   `Fase Actual` del Excel: renombrar una fase implica migrar los datos
   existentes.
