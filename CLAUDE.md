@@ -47,7 +47,7 @@ también [Context.md](Context.md). La documentación de usuario está en
 ## Resumen del proyecto
 
 App de escritorio en **Python + CustomTkinter** para gestionar las boletas de
-impresión 3D / corte láser del LAIMI. Cada boleta avanza por 7 fases y se
+impresión 3D / corte láser del LAIMI. Cada boleta avanza por 6 fases y se
 guarda en `control_impresiones.xlsx` (pandas + openpyxl).
 
 ## Comandos
@@ -71,8 +71,9 @@ src/main.py                 → arranca boletas.ui.main_window.App
 src/boletas/config.py       → FASES, COLUMNAS, REQUIRED_FIELDS, opciones, precio (valores por defecto)
 src/boletas/ajustes.py      → configuracion.json: opciones editables desde la UI, sin recompilar
 src/boletas/catalogo.py     → consultas sobre opciones (usos/prioridad, colores, impresoras, obligatorios)
+src/boletas/fechas.py       → normaliza y lee fechas/horas escritas a mano (sin UI)
 src/boletas/planificador.py → orden óptimo de impresión del día (sin UI)
-src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre el Excel)
+src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre el Excel; cada cambio se guarda al momento)
 src/boletas/services.py     → PricingService, PhaseDetector, UsuarioService (historial → AD)
 src/boletas/directorio_ad.py → DirectorioAD: consultas al AD (solo lectura, vía PowerShell)
 src/boletas/prusaslicer.py  → gramos y tiempo desde G-code/.bgcode/3MF de PrusaSlicer (sin UI)
@@ -81,7 +82,7 @@ src/boletas/outlook.py      → abre un correo como borrador en Outlook (COM ví
 src/boletas/ui/main_window.py → App: listado, búsqueda, filtro por fase (controlador)
 src/boletas/ui/boleta_form.py → BoletaForm: orquesta las secciones, navega (bloqueo de fases), valida, guarda
 src/boletas/ui/config_window.py · plan_window.py · tabla_editable.py → Configuración y Orden de impresión
-src/boletas/ui/importar_slicer.py → botón «Desde PrusaSlicer…» (Recepción, Revisión y Reimpresión)
+src/boletas/ui/importar_slicer.py → botón «Desde PrusaSlicer…» (Recepción y Revisión)
 src/boletas/ui/enviar_correo.py → botones «✉ …» de correo (Impresión y Despegado)
 src/boletas/ui/phases/      → una PhaseSection por fase + registro PHASE_CLASSES
 src/boletas/ui/theme.py     → colores de cada fase y fuentes

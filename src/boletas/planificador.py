@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from . import catalogo, config
+from .fechas import leer_fecha_hora
 from .services import PhaseDetector
 
 SIN_COLOR = "(sin color)"
@@ -47,7 +48,6 @@ class Trabajo:
     tipo_requerido: str
     prioridad: int
     recibido: datetime
-    reimpresion: bool = False
 
     @property
     def filamento(self):
@@ -112,16 +112,6 @@ def gramos_desde_texto(texto):
     return gramos if gramos > 0 else None
 
 
-def _fecha_hora(fecha, hora):
-    try:
-        return datetime.strptime(f"{fecha} {hora}".strip(), f"{config.FORMATO_FECHA} {config.FORMATO_HORA}")
-    except ValueError:
-        try:
-            return datetime.strptime(str(fecha).strip(), config.FORMATO_FECHA)
-        except ValueError:
-            return None
-
-
 def _filamento_de(registro):
     material = str(registro.get('Material', '')).strip()
     if material == config.MATERIAL_OTRO:
@@ -154,21 +144,17 @@ class PlanificadorService:
                 if str(registro.get('F1_Operador', '')).strip():
                     sin_programar.append((boleta_id, "Pendiente de Revisión (faltan gramos y tiempo)"))
             elif fase == 1 or (fase == 2 and not str(registro.get('Impresora_Num', '')).strip()):
-                self._agregar_trabajo(registro, 'Uso_Material_g', 'Tiempo_Impresion_HHMM',
-                                      trabajos, sin_programar, reimpresion=False)
+                self._agregar_trabajo(registro, trabajos, sin_programar)
             elif fase == 2:
                 self._marcar_ocupada(registro, impresoras, ahora)
-            elif fase == 5:
-                self._agregar_trabajo(registro, 'F6_Uso_Material_g', 'F6_Tiempo_Impresion_HHMM',
-                                      trabajos, sin_programar, reimpresion=True)
 
         return trabajos, sorted(impresoras.values(), key=lambda i: i.numero), sin_programar
 
     @staticmethod
-    def _agregar_trabajo(registro, col_gramos, col_tiempo, trabajos, sin_programar, reimpresion):
+    def _agregar_trabajo(registro, trabajos, sin_programar):
         boleta_id = int(registro.get('ID Boleta') or 0)
-        gramos = gramos_desde_texto(registro.get(col_gramos))
-        minutos = minutos_desde_texto(registro.get(col_tiempo))
+        gramos = gramos_desde_texto(registro.get('Uso_Material_g'))
+        minutos = minutos_desde_texto(registro.get('Tiempo_Impresion_HHMM'))
         if gramos is None or not minutos:
             sin_programar.append((boleta_id, "Faltan los gramos o el tiempo de impresión"))
             return
@@ -180,8 +166,7 @@ class PlanificadorService:
             material=material, color=color, gramos=gramos, minutos=minutos,
             tipo_requerido=str(registro.get('Tipo_Impresora', '')).strip(),
             prioridad=catalogo.prioridad_uso(str(registro.get('Uso', '')).strip()),
-            recibido=_fecha_hora(registro.get('F1_Fecha', ''), registro.get('F1_Hora', '')) or datetime.max,
-            reimpresion=reimpresion,
+            recibido=leer_fecha_hora(registro.get('F1_Fecha', ''), registro.get('F1_Hora', '')) or datetime.max,
         ))
 
     @staticmethod
@@ -193,7 +178,7 @@ class PlanificadorService:
         impresora = impresoras.get(numero)
         if impresora is None:
             return  # Impresora inactiva o que ya no existe.
-        inicio = _fecha_hora(registro.get('F3_Fecha', ''), registro.get('F3_Hora', ''))
+        inicio = leer_fecha_hora(registro.get('F3_Fecha', ''), registro.get('F3_Hora', ''))
         minutos = minutos_desde_texto(registro.get('Tiempo_Impresion_HHMM'))
         restante = 0
         if inicio and minutos:
@@ -308,9 +293,8 @@ def plan_a_texto(plan):
         for n, a in enumerate(propias, 1):
             t = a.trabajo
             cambio = "  [cambiar rollo]" if a.cambio_filamento else ""
-            reimp = " (reimpresión)" if t.reimpresion else ""
             lineas.append(
-                f"  {n}. {plan.hora(a.inicio)} - {plan.hora(a.fin)}  Boleta {t.boleta_id}{reimp}  "
+                f"  {n}. {plan.hora(a.inicio)} - {plan.hora(a.fin)}  Boleta {t.boleta_id}  "
                 f"{nombre_filamento(t.filamento)}  {t.gramos:.0f} g  {duracion_texto(t.minutos)}  "
                 f"P{t.prioridad}  {t.usuario}{cambio}"
             )

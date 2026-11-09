@@ -25,7 +25,7 @@ from datetime import datetime
 import customtkinter as ctk
 import pandas as pd
 
-from .. import catalogo, config
+from .. import catalogo, config, fechas
 from ..services import PhaseDetector
 from . import theme
 from .phases import build_phases
@@ -164,7 +164,7 @@ class BoletaForm(ctk.CTkToplevel):
         self.after(100, revisar)
 
     def current_index(self):
-        """Índice (0..6) de la fase marcada como actual."""
+        """Índice (0..5) de la fase marcada como actual."""
         fase = self.vars['Fase Actual'].get()
         return config.FASES.index(fase) if fase in config.FASES else 0
 
@@ -214,14 +214,21 @@ class BoletaForm(ctk.CTkToplevel):
     def _programar_refresco(self, *_):
         """Al escribir en cualquier campo, actualiza los candados (una vez por ciclo)."""
         if not self._refresco_pendiente:
-            self._refresco_pendiente = True
-            self.after_idle(self._refrescar_barras)
+            self._refresco_pendiente = self.after_idle(self._refrescar_barras)
 
     def _refrescar_barras(self):
         self._refresco_pendiente = False
         if self.winfo_exists():
             for phase in self.phases:
                 phase.refresh_header()
+
+    def destroy(self):
+        # Un refresco pendiente (p. ej. tras normalizar la hora al guardar) no
+        # debe ejecutarse sobre widgets ya destruidos.
+        if self._refresco_pendiente:
+            self.after_cancel(self._refresco_pendiente)
+            self._refresco_pendiente = False
+        super().destroy()
 
     def expand_all(self):
         for phase in self.phases:
@@ -288,18 +295,46 @@ class BoletaForm(ctk.CTkToplevel):
             self.set_current_phase(current_index - 1)
 
     def _validate_phase(self, phase_index):
-        """Valida los campos obligatorios de una fase. True si está completa."""
-        missing_fields = self._campos_faltantes(phase_index)
-        if missing_fields:
+        """Valida los campos obligatorios y el formato de fecha/hora de una fase. True si está bien."""
+        self._normalizar_fecha_hora(phase_index)
+        problemas = [f"Falta: {name}" for name in self._campos_faltantes(phase_index)]
+        problemas += self._formatos_invalidos(phase_index)
+        if problemas:
             messagebox.showwarning(
                 "Campos Obligatorios",
-                f"Por favor, complete los siguientes campos de la fase "
+                f"Por favor, corrija lo siguiente en la fase "
                 f"«{config.FASES[phase_index]}» antes de continuar:\n\n"
-                + "\n".join(f"• {name}" for name in missing_fields),
+                + "\n".join(f"• {problema}" for problema in problemas),
                 parent=self,
             )
             return False
         return True
+
+    @staticmethod
+    def _claves_fecha_hora(phase_index):
+        n = phase_index + 1
+        return f'F{n}_Fecha', f'F{n}_Hora'
+
+    def _normalizar_fecha_hora(self, phase_index):
+        """Pasa la fecha y la hora de la fase al formato canónico (p. ej. "2:30 p.m." -> "02:30 PM")."""
+        for key, normalizar in zip(self._claves_fecha_hora(phase_index),
+                                   (fechas.normalizar_fecha, fechas.normalizar_hora)):
+            if key in self.vars:
+                valor = self.vars[key].get()
+                if normalizar(valor) != valor:
+                    self.vars[key].set(normalizar(valor))
+
+    def _formatos_invalidos(self, phase_index):
+        """Mensajes de fecha u hora escritas que no se pueden leer."""
+        problemas = []
+        for key, valida, formato in zip(self._claves_fecha_hora(phase_index),
+                                        (fechas.fecha_valida, fechas.hora_valida),
+                                        ("dd/mm/aaaa", "hh:mm am/pm")):
+            texto = self.vars[key].get().strip() if key in self.vars else ''
+            if texto and not valida(texto):
+                problemas.append(f"{config.FIELD_NAMES.get(key, key)} no es válida "
+                                 f"(«{texto}»; use {formato}).")
+        return problemas
 
     def _campos_faltantes(self, phase_index):
         """Nombres legibles de los campos obligatorios vacíos de una fase."""
@@ -369,13 +404,14 @@ class BoletaForm(ctk.CTkToplevel):
         recepcion._update_part_name()
 
     def guardar_cambios(self):
-        # Validar todas las fases que ya tienen operador asignado.
+        # La Recepción siempre debe estar completa (si no, se guardarían boletas
+        # vacías); las demás fases, solo si ya tienen operador asignado.
         for i in range(len(config.FASES)):
             operator_key = f'F{i + 1}_Operador'
-            if operator_key in self.vars and self.vars[operator_key].get().strip():
-                if not self._validate_phase(i):
-                    self.show_phase(i)
-                    return
+            iniciada = operator_key in self.vars and self.vars[operator_key].get().strip()
+            if (i == 0 or iniciada) and not self._validate_phase(i):
+                self.show_phase(i)
+                return
 
         form_data = {key: var.get() for key, var in self.vars.items()}
         # Si se volvió a una fase anterior, la boleta sigue en la más avanzada.
@@ -388,12 +424,14 @@ class BoletaForm(ctk.CTkToplevel):
         for phase in self.phases:
             phase.on_collect(form_data)
 
+        # Si no se pudo guardar (p. ej. el Excel está abierto), la ventana sigue
+        # abierta con los datos para volver a intentarlo.
         if self.boleta_id:
-            self.parent_app.update_record(self.boleta_id, form_data)
+            if not self.parent_app.update_record(self.boleta_id, form_data, parent=self):
+                return
             messagebox.showinfo("Éxito", f"Boleta #{self.boleta_id} actualizada correctamente.", parent=self)
         else:
-            if not form_data.get('Fase Actual'):
-                form_data['Fase Actual'] = config.FASES[0]
-            self.parent_app.add_new_record(form_data)
+            if not self.parent_app.add_new_record(form_data, parent=self):
+                return
             messagebox.showinfo("Éxito", f"Boleta #{form_data['ID Boleta']} creada correctamente.", parent=self)
         self.destroy()

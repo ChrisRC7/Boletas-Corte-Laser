@@ -1,8 +1,7 @@
 """Lógica de negocio reutilizable, independiente de la interfaz gráfica.
 
 Separar estos cálculos de los widgets permite probarlos por separado y reusarlos
-(por ejemplo, el precio se calcula igual en la fase de Revisión y en la de
-Reimpresión).
+sin abrir ventanas.
 """
 
 from . import config

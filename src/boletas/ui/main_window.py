@@ -49,21 +49,18 @@ class App(ctk.CTk):
 
     # --- Ciclo de vida ----------------------------------------------------
     def on_closing(self):
-        self.save_data()
+        # Cada cambio ya se guardó en el Excel en el momento: no hay nada pendiente.
         self.destroy()
 
-    def save_data(self):
-        """Guarda los cambios, traduciendo los errores a mensajes para el usuario."""
-        try:
-            self.repo.save()
-        except PermissionError:
-            messagebox.showerror(
-                "Error",
-                f"No se pudo guardar el archivo '{self.repo.excel_file}'.\n"
-                "Asegúrese de que no esté abierto.",
-            )
-        except Exception as e:
-            messagebox.showerror("Error Inesperado", f"Ocurrió un error al guardar: {e}")
+    def _avisar_error_guardado(self, error, parent=None):
+        """Traduce un error al escribir el Excel a un mensaje para el usuario."""
+        if isinstance(error, PermissionError):
+            texto = (f"No se pudo guardar el archivo '{self.repo.excel_file}'.\n"
+                     "Asegúrese de que no esté abierto en Excel y vuelva a intentarlo.")
+        else:
+            texto = f"Ocurrió un error al guardar: {error}"
+        messagebox.showerror("No se guardó", texto + "\n\nEl cambio no se aplicó.",
+                             parent=parent or self)
 
     # --- Construcción de la interfaz --------------------------------------
     def create_widgets(self):
@@ -248,7 +245,12 @@ class App(ctk.CTk):
             f"¿Está seguro de que desea borrar permanentemente la boleta #{boleta_id}?",
         ):
             return
-        if self.repo.delete(boleta_id):
+        try:
+            borrada = self.repo.delete(boleta_id)
+        except Exception as error:
+            self._avisar_error_guardado(error)
+            return
+        if borrada:
             self.show_all_boletas()
             messagebox.showinfo("Éxito", f"La boleta #{boleta_id} ha sido borrada.")
         else:
@@ -264,12 +266,26 @@ class App(ctk.CTk):
     def get_boleta_by_id(self, boleta_id):
         return self.repo.get_by_id(boleta_id)
 
-    def add_new_record(self, record_dict):
-        self.repo.add(record_dict)
+    def add_new_record(self, record_dict, parent=None):
+        """Añade y guarda una boleta. Devuelve True si quedó guardada en el Excel."""
+        try:
+            self.repo.add(record_dict)
+        except Exception as error:
+            self._avisar_error_guardado(error, parent)
+            return False
         self.show_all_boletas()
+        return True
 
-    def update_record(self, boleta_id, form_data):
-        if not self.repo.update(boleta_id, form_data):
-            messagebox.showerror("Error", "No se pudo encontrar el índice para actualizar.")
-            return
+    def update_record(self, boleta_id, form_data, parent=None):
+        """Actualiza y guarda una boleta. Devuelve True si quedó guardada en el Excel."""
+        try:
+            encontrada = self.repo.update(boleta_id, form_data)
+        except Exception as error:
+            self._avisar_error_guardado(error, parent)
+            return False
+        if not encontrada:
+            messagebox.showerror("Error", f"No se encontró la boleta #{boleta_id} para actualizarla.",
+                                 parent=parent or self)
+            return False
         self.show_all_boletas()
+        return True

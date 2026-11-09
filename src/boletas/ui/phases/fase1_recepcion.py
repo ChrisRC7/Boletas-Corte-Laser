@@ -21,7 +21,7 @@ from ... import catalogo, config
 from ...directorio_ad import es_carne, es_correo, es_cuenta, normalizar_cuenta
 from .. import theme
 from ..importar_slicer import fila_prusaslicer
-from .base import PhaseSection, PAD_X, PAD_Y
+from .base import PhaseSection, PAD_X, PAD_Y, PATRON_ENTERO, PATRON_TELEFONO
 
 
 class Phase1Recepcion(PhaseSection):
@@ -54,7 +54,7 @@ class Phase1Recepcion(PhaseSection):
         row = self.new_row()
         carne_entry = self.field(row, 0, 'Carné', "CARNÉ")
         carne_entry.bind("<FocusOut>", self._on_carne_changed)
-        self.field(row, 2, 'Teléfono', "TELÉFONO")
+        self.restringir(self.field(row, 2, 'Teléfono', "TELÉFONO"), PATRON_TELEFONO)
 
         # USO: opciones a la izquierda y el detalle (curso/evento) a la derecha.
         row = self.new_row()
@@ -72,7 +72,7 @@ class Phase1Recepcion(PhaseSection):
 
         row = self.new_row()
         self.label(row, 0, "CANTIDAD DE COPIAS", "Marcar 0 si es solo la original")
-        copias = self.entry(frame, 'Cantidad_Copias', width=80)
+        copias = self.restringir(self.entry(frame, 'Cantidad_Copias', width=80), PATRON_ENTERO)
         copias.grid(row=row, column=1, sticky="w", padx=(0, PAD_X), pady=PAD_Y)
 
         # MATERIAL: opciones en una línea + campo "Otro".

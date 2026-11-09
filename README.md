@@ -2,8 +2,11 @@
 
 Aplicación de escritorio (CustomTkinter) para gestionar las **boletas de impresión 3D
 / corte láser** del LAIMI. Permite registrar cada solicitud y seguirla a lo
-largo de sus **7 fases**, desde la recepción hasta la entrega (o cancelación).
-Los datos se guardan en un archivo Excel (`control_impresiones.xlsx`).
+largo de sus **6 fases**, desde la recepción hasta la entrega (o cancelación).
+Los datos se guardan en un archivo Excel (`control_impresiones.xlsx`) **en el
+momento** en que se crea, edita o borra una boleta. Si el Excel está abierto en
+Office, la app avisa y el cambio no se aplica (el formulario queda abierto para
+reintentar).
 
 El formulario de cada boleta imita la **boleta impresa**: todas las fases están
 en una sola vista, una debajo de otra, cada una con su barra de color que se
@@ -20,8 +23,8 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
 - Permite **buscar** (por ID, carné, operador o cuenta) y **filtrar por fase**.
 - En las fases de Revisión e Impresión ordena por **prioridad de impresión**
   (Curso y Evento → Asistencia → Personal; a igual prioridad, por fecha de recepción).
-- Registra una lista de **fallos de impresión**. Una vez registrado, un fallo
-  **no se puede eliminar** (queda en el historial de la boleta).
+- Registra una lista de **fallos de impresión** con fecha, hora y operador. Una
+  vez registrado, un fallo **no se puede eliminar** (queda en el historial de la boleta).
 - Tiene un campo de **notas de impresión** en la Fase 3.
 - **Autocompleta con el Active Directory** (solo lectura):
   - En **OPERADOR** se puede escribir el usuario del correo (con o sin
@@ -56,8 +59,7 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   `<cuenta>@estudiantec.cr`, con el asunto y texto de siempre); el operador lo
   revisa y pulsa Enviar. Los textos están en `src/boletas/correos.py`.
 - **Desde PrusaSlicer…**: en la Recepción llena material, resolución y relleno;
-  en la Revisión, eso más los gramos y el tiempo; en la Reimpresión, gramos y
-  tiempo. La capa y el relleno se marcan en la opción más cercana y un
+  en la Revisión, eso más los gramos y el tiempo. La capa y el relleno se marcan en la opción más cercana y un
   filamento que no está en la lista va a «Otro»; si cambia algo ya lleno, lo
   avisa. Lee el G-code exportado (`.gcode` o `.bgcode`), o sliceando
   un proyecto `.3mf` (o un `.stl` si hay un perfil `.ini` en la Configuración)
@@ -67,7 +69,7 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
 
 ### Orden de impresión del día
 
-Reparte los trabajos listos (Revisión completa o Reimpresión) entre las
+Reparte los trabajos listos (Revisión completa) entre las
 impresoras activas:
 
 - Orden por **prioridad de uso** y, a igual prioridad, el **más antiguo**.
@@ -106,15 +108,14 @@ gramos/tiempo aparecen en "Sin programar".
   **Expandir todo / Contraer todo** y **Guardar Cambios**.
 - Al abrir una boleta existente se despliega directamente su fase actual.
 
-### Las 7 fases
+### Las 6 fases
 
 1. Recepción
 2. Revisión y Preparación
 3. Impresión
 4. Despegado de Piezas
 5. Entrega de Piezas
-6. Reimpresión
-7. Cancelación
+6. Cancelación
 
 ---
 
@@ -134,6 +135,7 @@ Boletas Corte Laser/
     │   ├── config.py          # Constantes: fases, columnas, opciones, precio (valores por defecto)
     │   ├── ajustes.py         # Lee/guarda configuracion.json (opciones editables sin recompilar)
     │   ├── catalogo.py        # Consultas sobre las opciones (usos, colores, impresoras)
+    │   ├── fechas.py          # Normaliza y lee fechas/horas escritas a mano
     │   ├── planificador.py    # Orden óptimo de impresión del día
     │   ├── repository.py      # Acceso a datos (Excel)        [patrón Repository]
     │   ├── services.py        # Lógica de negocio (precio, fase, autocompletado de usuarios)
@@ -149,7 +151,7 @@ Boletas Corte Laser/
     │       ├── config_window.py # Ventana de Configuración
     │       ├── plan_window.py # Ventana del orden de impresión
     │       ├── tabla_editable.py # Tabla de filas editable (usada en la Configuración)
-    │       ├── importar_slicer.py # Botón «Desde PrusaSlicer…» (Recepción, Revisión, Reimpresión)
+    │       ├── importar_slicer.py # Botón «Desde PrusaSlicer…» (Recepción y Revisión)
     │       ├── enviar_correo.py # Botones «✉ …» que abren los correos en Outlook (Impresión, Despegado)
     │       └── phases/        # Una fase por archivo (cada sección es independiente)
     │           ├── __init__.py            # Registro de fases (PHASE_CLASSES)
@@ -159,8 +161,7 @@ Boletas Corte Laser/
     │           ├── fase3_impresion.py
     │           ├── fase4_despegado.py
     │           ├── fase5_entrega.py
-    │           ├── fase6_reimpresion.py
-    │           └── fase7_cancelacion.py
+    │           └── fase6_cancelacion.py
     ├── main.spec              # Configuración de PyInstaller
     └── build/, dist/          # Artefactos generados al empaquetar
 ```
@@ -214,7 +215,7 @@ propio archivo**, sin afectar a las demás. Cada fase es una subclase de
   La base ofrece ayudantes para armar la cuadrícula como en la boleta
   (`new_row`, `field`, `operator_row`, `radio_group`, `checkbox`...).
 - `on_populate(data)` *(opcional)* — carga datos propios al editar (p. ej. la
-  lista de fallos de la Fase 3 o el motivo de la Fase 7).
+  lista de fallos de la Fase 3 o el motivo de la Fase 6).
 - `on_collect(form_data)` *(opcional)* — aporta datos propios al guardar.
 
 El `BoletaForm` solo recorre el registro de fases (`ui/phases/__init__.py`) y

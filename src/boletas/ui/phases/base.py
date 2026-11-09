@@ -12,7 +12,7 @@ están completas está **bloqueada** (🔒, barra atenuada); en cuanto se
 completan, un clic en su barra la abre y la hace la fase actual.
 
 Contrato que puede implementar cada fase:
-    index              -> índice de la fase (0..6), enlaza con config.FASES (obligatorio)
+    index              -> índice de la fase (0..5), enlaza con config.FASES (obligatorio)
     build_widgets(f)   -> construye los widgets dentro del frame `f` (obligatorio)
     on_populate(data)  -> carga datos específicos al editar una boleta (opcional)
     on_collect(out)    -> añade datos específicos al diccionario a guardar (opcional)
@@ -29,6 +29,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from ... import config
+from ...fechas import normalizar_fecha, normalizar_hora
 from .. import theme
 
 # Columnas de la cuadrícula de cada sección:  etiqueta | campo | etiqueta | campo
@@ -44,6 +45,8 @@ PATRON_FECHA = r"[\d/]{0,10}"                                      # dd/mm/aaaa
 PATRON_HORA = r"[\d:]{0,5}|\d{1,2}:\d{2}(\s?[aApP]\.?\s?[mM]?\.?|\s)"  # hh:mm am/pm (am/pm tras hh:mm)
 PATRON_HORAS = r"\d{0,3}"                                          # tiempo: horas
 PATRON_MINUTOS = r"\d{0,4}"                                        # tiempo: minutos (90 -> 1 h 30)
+PATRON_ENTERO = r"\d{0,4}"                                         # cantidades (copias)
+PATRON_TELEFONO = r"[\d\s+()-]{0,20}"                              # dígitos, espacios, +, -, ()
 
 
 class PhaseSection:
@@ -252,17 +255,30 @@ class PhaseSection:
         """Campos de Fecha y Hora con un botón 'Hoy'.
 
         Solo aceptan números y los separadores del formato (`/` en la fecha;
-        `:` y am/pm en la hora).
+        `:` y am/pm en la hora). Al salir del campo se pasan al formato
+        canónico ("1/2/2026" -> "01/02/2026", "2:30 p.m." -> "02:30 PM",
+        "14:30" -> "02:30 PM") para que siempre se puedan leer después.
         """
         self.label(row, col, "FECHA", "dd/mm/aaaa · hh:mm am/pm")
         cell = self.cell(row, col + 1, sticky="ew")
-        self.restringir(self.entry(cell, fecha_key, width=105), PATRON_FECHA).pack(side="left")
+        fecha = self.restringir(self.entry(cell, fecha_key, width=105), PATRON_FECHA)
+        fecha.pack(side="left")
+        fecha.bind("<FocusOut>", lambda _e: self._normalizar(fecha_key, normalizar_fecha))
         ctk.CTkLabel(cell, text="HORA", font=theme.font(12, "bold"), text_color=theme.TEXT).pack(side="left", padx=(10, 6))
-        self.restringir(self.entry(cell, hora_key, width=90), PATRON_HORA).pack(side="left")
+        hora = self.restringir(self.entry(cell, hora_key, width=90), PATRON_HORA)
+        hora.pack(side="left")
+        hora.bind("<FocusOut>", lambda _e: self._normalizar(hora_key, normalizar_hora))
         ctk.CTkButton(
             cell, text="Hoy", width=50, fg_color=self.color, hover_color=self.hover_color,
             command=lambda: self.form.set_datetime(fecha_key, hora_key),
         ).pack(side="left", padx=(8, 0))
+
+    def _normalizar(self, key, normalizar):
+        """Pasa `vars[key]` al formato canónico (solo si cambia, para no disparar avisos)."""
+        valor = self.vars[key].get()
+        normalizado = normalizar(valor)
+        if normalizado != valor:
+            self.vars[key].set(normalizado)
 
     def duration_field(self, row, col, key, text):
         """Etiqueta + dos campos (horas y minutos) que se guardan juntos como "H:MM" en `vars[key]`.

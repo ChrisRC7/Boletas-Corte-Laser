@@ -1,7 +1,7 @@
 """Botón "Desde PrusaSlicer…": llena datos de la boleta a partir del slicer.
 
 Según la fase donde se ponga, el botón llena:
-- **gramos y tiempo** (`gramos_key`, `tiempo_key`): Revisión y Reimpresión.
+- **gramos y tiempo** (`gramos_key`, `tiempo_key`): Revisión.
 - **parámetros** (`parametros=True`): material, resolución (altura de capa) y
   relleno de la Recepción. La capa y el relleno se ajustan a la opción más
   cercana de la boleta; un filamento que no está en la lista va a "Otro".

@@ -24,18 +24,29 @@ _Última revisión: 2026-11-09._
 |---|------|--------------|
 | 1 | Recepción | operador, fecha/hora, nombre del usuario, cuenta, carrera, carné, teléfono, uso (+detalle), pieza, **color del filamento**, observaciones, copias, material, resolución, relleno |
 | 2 | Revisión y Preparación | gramos de material, tiempo de impresión, **precio** (= g × `PRECIO_POR_GRAMO`, 50 ₡), **tipo de impresora** (MK4S / Core One Plus / Cualquiera) |
-| 3 | Impresión | confirmación del usuario (botón ✉ solicitar autorización), impresora (solo del tipo pedido), envío de correo (botón ✉ inicio), **lista de fallos** (solo se agregan, no se eliminan), **notas de impresión** |
+| 3 | Impresión | confirmación del usuario (botón ✉ solicitar autorización), impresora (solo del tipo pedido), envío de correo (botón ✉ inicio), **lista de fallos** con fecha/hora/operador (solo se agregan, no se eliminan; JSON en `Fallo_Lista`), **notas de impresión** |
 | 4 | Despegado de Piezas | observaciones, ¿imprimió bien?, correo (botón ✉ finalización) |
 | 5 | Entrega de Piezas | verificación de cobro, recibido conforme |
-| 6 | Reimpresión | observaciones, gramos, tiempo, precio |
-| 7 | Cancelación | motivo de cancelación |
+| 6 | Cancelación | motivo de cancelación |
+
+- **La fase «Reimpresión» se eliminó.** Al cargar un Excel con el formato de 7
+  fases, el repositorio lo migra (`config.COLUMNAS_RENOMBRADAS` y
+  `FASES_RENOMBRADAS`): la Cancelación pasa de `F7_*` a `F6_*`, las boletas en
+  «6. Reimpresión» pasan a «5. Entrega de Piezas» y los datos de la antigua
+  Reimpresión se conservan en columnas `Reimpresion_Antigua_*` al final del
+  Excel (se descartan si estaban vacías).
 
 - La fase actual se guarda en `Fase Actual`; `PhaseDetector` puede deducirla
   como la fase más avanzada con operador.
 - En Revisión e Impresión el listado se ordena por prioridad de uso
   (Curso/Evento → Asistencia → Personal) y luego por fecha de recepción.
 - Validación de campos obligatorios al avanzar de fase y al guardar
-  (`catalogo.campos_obligatorios`, basado en `config.REQUIRED_FIELDS`).
+  (`catalogo.campos_obligatorios`, basado en `config.REQUIRED_FIELDS`). La
+  Recepción se valida siempre al guardar; las demás fases, si tienen operador.
+- Fecha y hora: al salir del campo (y al validar) se normalizan con
+  `fechas.py` («1/2/2026» → «01/02/2026», «2:30 p.m.» o «14:30» → «02:30 PM»);
+  si no se pueden leer, la validación lo indica.
+- Cantidad de copias solo acepta números; teléfono, dígitos y `+ - ( )`.
 - **Bloqueo de fases:** una fase se abre si las anteriores están completas (o
   si ya se llegó a ella); un clic en su barra la hace fase actual. Cancelación
   (`FASES_SIN_ORDEN`) solo exige la Recepción. Al guardar, `Fase Actual` =
@@ -51,7 +62,10 @@ _Última revisión: 2026-11-09._
 
 - Un único Excel `control_impresiones.xlsx` en el directorio de trabajo.
 - Se carga entero en memoria (DataFrame, todo como `str` salvo `ID Boleta`).
-- Se guarda al cerrar la ventana principal, al guardar una boleta y al borrar.
+- Se guarda en el momento al crear, editar o borrar una boleta (no al cerrar).
+  Si falla (p. ej. el Excel abierto en Office), el cambio se deshace también en
+  memoria y la UI lo avisa. La escritura es atómica (temporal + `os.replace`).
+- Las columnas que no están en `config.COLUMNAS` se conservan al final.
 - El ID nuevo es `max(ID) + 1`.
 - **Limitación:** no soporta varias PCs escribiendo a la vez (último que guarda
   pisa al otro) y falla si el Excel está abierto en Office.
@@ -77,7 +91,9 @@ _Última revisión: 2026-11-09._
 8. ~~Renombrar Fase 7 "Cancelada" → "Cancelación"~~ ✅ Hecho (el repositorio
    migra los valores viejos al cargar, vía `config.FASES_RENOMBRADAS`).
 9. ~~Editor de valores configurables~~ ✅ Hecho: ventana ⚙ Configuración
-   dentro de la app, guarda en `configuracion.json` (`ajustes.py`).
+   dentro de la app, guarda en `configuracion.json` (`ajustes.py`). Al cargar se
+   revisa la estructura y la coherencia; si no es válido se usan los valores
+   por defecto y se avisa.
 
 Otras funciones (2026-11-09): **orden de impresión del día** (`planificador.py`,
 un rollo abierto por material+color salvo demanda > `GRAMOS_POR_ROLLO`),
@@ -126,7 +142,6 @@ desde el campo Nombre y reemplazo de datos al cambiar de persona.
 - Módulo `src/boletas/prusaslicer.py` (sin UI) y botón en
   `ui/importar_slicer.py`. Recepción: material (`filament_type`), resolución
   (`layer_height`) y relleno (`fill_density`). Revisión: eso + gramos y tiempo.
-  Reimpresión: gramos y tiempo.
 - La conversión a opciones de la boleta está en `catalogo.material_desde_slicer`
   (FLEX → «Flex (TPU)» por coincidir con una palabra; desconocido → «Otro» con
   el tipo en el detalle) y `catalogo.opcion_cercana` (capa 0.3 → 0.28).

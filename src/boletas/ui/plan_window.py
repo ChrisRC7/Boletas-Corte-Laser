@@ -143,8 +143,6 @@ class PlanWindow(ctk.CTkToplevel):
                 notas = []
                 if a.cambio_filamento:
                     notas.append("Cambiar rollo")
-                if t.reimpresion:
-                    notas.append("Reimpresión")
                 self.tabla.insert('', 'end', tags=(etiqueta,), values=(
                     f"{impresora.numero} · {impresora.tipo}", orden, plan.hora(a.inicio), plan.hora(a.fin),
                     t.boleta_id, t.usuario, planificador.nombre_filamento(t.filamento),

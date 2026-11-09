@@ -11,11 +11,15 @@ Tiene dos botones de correo (se abren como borrador en Outlook):
   notificación de inicio (y pone la fecha/hora de ahora si están vacías).
 
 Los fallos solo se pueden agregar, nunca eliminar: así queda el historial
-completo de cada boleta y el proceso es transparente.
+completo de cada boleta y el proceso es transparente. Cada fallo guarda su
+descripción, fecha, hora y operador (`{"descripcion", "fecha", "hora",
+"operador"}`); los fallos de versiones anteriores, guardados solo como texto,
+se siguen mostrando.
 """
 
 import json
 import tkinter as tk
+from datetime import datetime
 from tkinter import messagebox
 
 import customtkinter as ctk
@@ -100,10 +104,13 @@ class Phase3Impresion(PhaseSection):
         fallo_lista_str = boleta_data.get('Fallo_Lista', '')
         if fallo_lista_str and not pd.isna(fallo_lista_str) and str(fallo_lista_str).strip():
             try:
-                self.fallos_lista = json.loads(str(fallo_lista_str))
-                self._refrescar_lista_fallos()
+                fallos = json.loads(str(fallo_lista_str))
             except json.JSONDecodeError:
-                self.fallos_lista = []
+                fallos = None
+            # Un valor que no es una lista se conserva como un fallo de texto
+            # (los fallos nunca se pierden).
+            self.fallos_lista = fallos if isinstance(fallos, list) else [str(fallo_lista_str)]
+            self._refrescar_lista_fallos()
 
     # --- Tipo de impresora ------------------------------------------------
     def _actualizar_tipo(self):
@@ -142,11 +149,17 @@ class Phase3Impresion(PhaseSection):
     def _agregar_fallo(self):
         dialog = ctk.CTkToplevel(self.form)
         dialog.title("Agregar Fallo")
-        dialog.geometry("420x240")
+        dialog.geometry("420x300")
         dialog.configure(fg_color=theme.PAPER)
         dialog.transient(self.form)
         # CTkToplevel aún no es visible al crearse: el grab se hace un instante después.
         dialog.after(150, dialog.grab_set)
+
+        # Operador que detectó el fallo (por defecto, el de la Impresión).
+        ctk.CTkLabel(dialog, text="Operador:", font=theme.font(12, "bold")).pack(pady=(10, 0), padx=10, anchor="w")
+        operador_var = tk.StringVar(value=self.vars['F3_Operador'].get().strip())
+        ctk.CTkEntry(dialog, textvariable=operador_var, font=theme.font(12),
+                     border_color=theme.SEPARATOR).pack(padx=10, fill="x")
 
         ctk.CTkLabel(dialog, text="Descripción del Fallo:", font=theme.font(12, "bold")).pack(pady=(10, 0), padx=10, anchor="w")
         ctk.CTkLabel(dialog, text="Una vez guardado, el fallo no se puede eliminar.", font=theme.font(10),
@@ -161,8 +174,18 @@ class Phase3Impresion(PhaseSection):
             if not descripcion:
                 messagebox.showwarning("Campo Vacío", "Por favor ingrese una descripción del fallo.", parent=dialog)
                 return
-            self.fallos_lista.append(descripcion)
-            self.fallos_listbox.insert(tk.END, f"{len(self.fallos_lista)}. {descripcion}")
+            operador = operador_var.get().strip()
+            if not operador:
+                messagebox.showwarning("Campo Vacío", "Indique el operador que detectó el fallo.", parent=dialog)
+                return
+            ahora = datetime.now()
+            self.fallos_lista.append({
+                "descripcion": descripcion,
+                "fecha": ahora.strftime(config.FORMATO_FECHA),
+                "hora": ahora.strftime(config.FORMATO_HORA),
+                "operador": operador,
+            })
+            self._refrescar_lista_fallos()
             dialog.destroy()
 
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
@@ -175,4 +198,15 @@ class Phase3Impresion(PhaseSection):
     def _refrescar_lista_fallos(self):
         self.fallos_listbox.delete(0, tk.END)
         for i, fallo in enumerate(self.fallos_lista, 1):
-            self.fallos_listbox.insert(tk.END, f"{i}. {fallo}")
+            self.fallos_listbox.insert(tk.END, f"{i}. {self._texto_fallo(fallo)}")
+
+    @staticmethod
+    def _texto_fallo(fallo):
+        """'09/11/2026 02:30 PM · Ana — Se despegó' (o el texto tal cual si es un fallo viejo)."""
+        if not isinstance(fallo, dict):
+            return str(fallo)
+        cuando = f"{fallo.get('fecha', '')} {fallo.get('hora', '')}".strip()
+        quien = fallo.get('operador', '')
+        encabezado = " · ".join(parte for parte in (cuando, quien) if parte)
+        descripcion = fallo.get('descripcion', '')
+        return f"{encabezado} — {descripcion}" if encabezado else descripcion

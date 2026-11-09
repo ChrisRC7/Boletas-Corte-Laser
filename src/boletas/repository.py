@@ -5,9 +5,15 @@ guardan en un archivo Excel con pandas. Toda la interfaz gráfica trabaja contra
 estos métodos, sin tocar directamente el DataFrame ni openpyxl. Si el día de
 mañana se quisiera migrar a una base de datos, solo habría que reescribir esta
 clase.
+
+Cada alta, edición o borrado se escribe en el Excel en el momento (no al cerrar
+la aplicación). Si la escritura falla (p. ej. el Excel está abierto), el cambio
+se deshace también en memoria y se lanza la excepción: así lo que se ve en la
+aplicación es siempre lo que hay en el archivo.
 """
 
 import os
+import tempfile
 
 import pandas as pd
 
@@ -40,10 +46,20 @@ class BoletaRepository:
     def _migrar(self):
         """Adapta un Excel de una versión anterior a la estructura actual.
 
+        - Renombra las columnas del formato con 7 fases (`config.COLUMNAS_RENOMBRADAS`):
+          la Cancelación pasa de F7 a F6 y la antigua Reimpresión se conserva
+          en columnas `Reimpresion_Antigua_*` (se descartan si están vacías).
         - Añade las columnas nuevas que falten (si no, sus valores no se
           guardarían al actualizar una boleta).
         - Renombra las fases que cambiaron de nombre (`config.FASES_RENOMBRADAS`).
         """
+        if config.COLUMNA_FORMATO_VIEJO in self.df.columns:
+            self.df = self.df.rename(columns=config.COLUMNAS_RENOMBRADAS)
+            antiguas = [c for c in config.COLUMNAS_RENOMBRADAS.values()
+                        if c not in config.COLUMNAS and c in self.df.columns]
+            vacias = [c for c in antiguas
+                      if self.df[c].fillna('').astype(str).str.strip().eq('').all()]
+            self.df = self.df.drop(columns=vacias)
         for columna in config.COLUMNAS:
             if columna not in self.df.columns:
                 self.df[columna] = pd.NA
@@ -52,11 +68,33 @@ class BoletaRepository:
     def save(self):
         """Guarda las boletas en el Excel respetando el orden de columnas.
 
+        Las columnas que no son de `config.COLUMNAS` (p. ej. datos de una fase
+        eliminada) se conservan al final. Se escribe primero un archivo
+        temporal y luego se reemplaza el Excel: si algo falla a mitad, el
+        archivo anterior queda intacto.
+
         Lanza la excepción correspondiente si falla (la capa de UI la traduce
         a un mensaje para el usuario).
         """
-        df_to_save = self.df.reindex(columns=config.COLUMNAS)
-        df_to_save.to_excel(self.excel_file, index=False, engine='openpyxl')
+        extra = [c for c in self.df.columns if c not in config.COLUMNAS]
+        df_to_save = self.df.reindex(columns=config.COLUMNAS + extra)
+        carpeta = os.path.dirname(os.path.abspath(self.excel_file))
+        descriptor, temporal = tempfile.mkstemp(prefix='~boletas_', suffix='.xlsx', dir=carpeta)
+        os.close(descriptor)
+        try:
+            df_to_save.to_excel(temporal, index=False, engine='openpyxl')
+            os.replace(temporal, self.excel_file)
+        finally:
+            if os.path.exists(temporal):
+                os.remove(temporal)
+
+    def _guardar_o_deshacer(self, anterior):
+        """Guarda; si falla, vuelve la tabla al estado `anterior` y relanza el error."""
+        try:
+            self.save()
+        except Exception:
+            self.df = anterior
+            raise
 
     # --- Consultas --------------------------------------------------------
     def all(self):
@@ -120,13 +158,17 @@ class BoletaRepository:
         return int(self.df['ID Boleta'].max() + 1)
 
     def get_by_id(self, boleta_id):
-        """Devuelve los datos de una boleta como diccionario, o None."""
+        """Devuelve los datos de una boleta como diccionario (vacíos -> ''), o None.
+
+        Los vacíos se devuelven como '' y no como NaN: un NaN es "verdadero" en
+        Python y, p. ej., `PhaseDetector` lo tomaría como un operador escrito.
+        """
         if self.df.empty:
             return None
         rows = self.df[self.df['ID Boleta'] == boleta_id]
         if rows.empty:
             return None
-        return rows.iloc[0].to_dict()
+        return rows.iloc[0].fillna('').to_dict()
 
     def buscar_datos_usuario(self, campo, valor):
         """Datos del usuario (nombre, cuenta, carrera, carné, teléfono) de su boleta más reciente.
@@ -149,31 +191,43 @@ class BoletaRepository:
                 datos[columna] = str(dato).strip()
         return datos or None
 
-    # --- Modificaciones ---------------------------------------------------
+    # --- Modificaciones (se guardan en el Excel al momento) --------------
     def add(self, record):
-        """Añade una boleta nueva (diccionario campo -> valor)."""
+        """Añade una boleta nueva (diccionario campo -> valor) y guarda.
+
+        Si no se puede guardar, la boleta no queda añadida y se lanza el error.
+        """
+        anterior = self.df
         nuevo = pd.DataFrame([record])
         self.df = pd.concat([self.df, nuevo], ignore_index=True)
+        self._guardar_o_deshacer(anterior)
 
     def update(self, boleta_id, form_data):
-        """Actualiza los campos de una boleta existente.
+        """Actualiza los campos de una boleta existente y guarda.
 
-        Devuelve True si se encontró y actualizó, False si no existe.
+        Devuelve True si se encontró y actualizó, False si no existe. Si no se
+        puede guardar, la boleta queda como estaba y se lanza el error.
         """
         idx_list = self.df.index[self.df['ID Boleta'] == boleta_id].tolist()
         if not idx_list:
             return False
+        anterior = self.df.copy()
         idx = idx_list[0]
         for key, value in form_data.items():
             if key in self.df.columns:
                 self.df.loc[idx, key] = value
+        self._guardar_o_deshacer(anterior)
         return True
 
     def delete(self, boleta_id):
-        """Borra una boleta por su ID. Devuelve True si existía y la guarda."""
+        """Borra una boleta por su ID y guarda. Devuelve True si existía.
+
+        Si no se puede guardar, la boleta no se borra y se lanza el error.
+        """
         idx_to_drop = self.df.index[self.df['ID Boleta'] == boleta_id]
         if idx_to_drop.empty:
             return False
-        self.df.drop(idx_to_drop, inplace=True)
-        self.save()
+        anterior = self.df
+        self.df = self.df.drop(idx_to_drop)
+        self._guardar_o_deshacer(anterior)
         return True
