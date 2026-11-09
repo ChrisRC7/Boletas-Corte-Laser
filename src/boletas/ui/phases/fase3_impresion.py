@@ -4,6 +4,12 @@ Muestra en qué tipo de impresora hay que imprimir (lo decide la Revisión) y
 solo deja elegir impresoras activas de ese tipo. Registra la impresora usada, una lista de fallos de impresión (guardada como
 JSON en la columna `Fallo_Lista`) y notas libres sobre la impresión.
 
+Tiene dos botones de correo (se abren como borrador en Outlook):
+- «Solicitar autorización»: costo de la pieza; al abrirlo marca la
+  confirmación por «Correo Institucional».
+- «Correo de inicio»: aviso de que empezó la impresión; marca la casilla de
+  notificación de inicio (y pone la fecha/hora de ahora si están vacías).
+
 Los fallos solo se pueden agregar, nunca eliminar: así queda el historial
 completo de cada boleta y el proceso es transparente.
 """
@@ -14,8 +20,9 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-from ... import catalogo, config
+from ... import catalogo, config, correos
 from .. import theme
+from ..enviar_correo import boton_correo
 from .base import PhaseSection, PAD_X, PAD_Y
 
 
@@ -31,8 +38,12 @@ class Phase3Impresion(PhaseSection):
 
         row = self.new_row()
         self.label(row, 0, "CONFIRMACIÓN\nDEL USUARIO")
-        self.radio_group(self.cell(row, 1, colspan=3), 'Confirmacion_Usuario',
+        confirmacion = self.cell(row, 1, colspan=3)
+        self.radio_group(confirmacion, 'Confirmacion_Usuario',
                          config.CONFIRMACION_OPTIONS, item_width=180)
+        boton_correo(self, confirmacion, correos.AUTORIZACION, "✉  Solicitar autorización",
+                     al_abrir=self._marcar_confirmacion_por_correo).grid(
+            row=0, column=len(config.CONFIRMACION_OPTIONS), padx=(10, 0))
 
         # Tipo de impresora pedido en la Revisión (solo lectura).
         row = self.new_row()
@@ -40,8 +51,12 @@ class Phase3Impresion(PhaseSection):
         self.tipo_label = ctk.CTkLabel(frame, text="", font=theme.font(14, "bold"),
                                        text_color=theme.ACCENT_RED, anchor="w")
         self.tipo_label.grid(row=row, column=1, sticky="w", padx=(0, PAD_X), pady=PAD_Y)
-        self.checkbox(frame, 'F3_Envio_Correo', "Envío de correo de notificación de inicio",
-                      text_color=theme.ACCENT_RED).grid(row=row, column=2, columnspan=2, sticky="w", padx=PAD_X, pady=PAD_Y)
+        correo = self.cell(row, 2, colspan=2)
+        self.checkbox(correo, 'F3_Envio_Correo', "Envío de correo de notificación de inicio",
+                      text_color=theme.ACCENT_RED).pack(side="left")
+        boton_correo(self, correo, correos.INICIO, "✉  Correo de inicio", width=140,
+                     antes=self._fecha_si_vacia,
+                     al_abrir=lambda: self.vars['F3_Envio_Correo'].set(True)).pack(side="left", padx=(10, 0))
 
         row = self.new_row()
         self.label(row, 0, "IMPRESORA", "Solo las del tipo indicado")
@@ -108,6 +123,17 @@ class Phase3Impresion(PhaseSection):
             compatible = catalogo.tipo_compatible(tipo, catalogo.tipo_de_impresora(numero))
             # La ya elegida queda habilitada para no "perderla" al editar boletas viejas.
             boton.configure(state='normal' if compatible or numero == seleccionada else 'disabled')
+
+    # --- Correos -----------------------------------------------------------
+    def _marcar_confirmacion_por_correo(self):
+        """La autorización se pidió por correo: se marca la primera opción (Correo Institucional)."""
+        if config.CONFIRMACION_OPTIONS:
+            self.vars['Confirmacion_Usuario'].set(config.CONFIRMACION_OPTIONS[0])
+
+    def _fecha_si_vacia(self):
+        """El correo de inicio dice cuándo se colocó la impresión: si no hay fecha, es ahora."""
+        if not self.vars['F3_Fecha'].get().strip() or not self.vars['F3_Hora'].get().strip():
+            self.form.set_datetime('F3_Fecha', 'F3_Hora')
 
     def on_collect(self, form_data):
         form_data['Fallo_Lista'] = json.dumps(self.fallos_lista) if self.fallos_lista else ''

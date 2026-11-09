@@ -48,6 +48,13 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   rellenos, usos/prioridades, impresoras y tipos **sin recompilar**. Se guarda
   en `configuracion.json` (junto al Excel); "Restaurar valores por defecto"
   vuelve a lo de `config.py`.
+- **Correos por Outlook**: en la Impresión, «✉ Solicitar autorización» (costo
+  de la pieza; marca la confirmación por «Correo Institucional») y «✉ Correo de
+  inicio» (marca la casilla de notificación de inicio; si no hay fecha/hora de
+  Impresión pone la de ahora); en el Despegado, «✉ Correo de finalización».
+  Cada botón abre en Outlook clásico un **borrador** ya lleno (para
+  `<cuenta>@estudiantec.cr`, con el asunto y texto de siempre); el operador lo
+  revisa y pulsa Enviar. Los textos están en `src/boletas/correos.py`.
 - **Desde PrusaSlicer…**: en la Recepción llena material, resolución y relleno;
   en la Revisión, eso más los gramos y el tiempo; en la Reimpresión, gramos y
   tiempo. La capa y el relleno se marcan en la opción más cercana y un
@@ -130,6 +137,8 @@ Boletas Corte Laser/
     │   ├── services.py        # Lógica de negocio (precio, fase, autocompletado de usuarios)
     │   ├── directorio_ad.py   # Consultas al Active Directory (solo lectura)
     │   ├── prusaslicer.py     # Gramos y tiempo desde G-code/3MF de PrusaSlicer
+    │   ├── correos.py         # Plantillas de los correos al usuario (autorización, inicio, finalización)
+    │   ├── outlook.py         # Abre los correos como borrador en Outlook (COM vía PowerShell)
     │   └── ui/                # Interfaz gráfica (CustomTkinter)
     │       ├── __init__.py
     │       ├── theme.py       # Colores de cada fase y fuentes (imitan la boleta)
@@ -139,6 +148,7 @@ Boletas Corte Laser/
     │       ├── plan_window.py # Ventana del orden de impresión
     │       ├── tabla_editable.py # Tabla de filas editable (usada en la Configuración)
     │       ├── importar_slicer.py # Botón «Desde PrusaSlicer…» (Recepción, Revisión, Reimpresión)
+    │       ├── enviar_correo.py # Botones «✉ …» que abren los correos en Outlook (Impresión, Despegado)
     │       └── phases/        # Una fase por archivo (cada sección es independiente)
     │           ├── __init__.py            # Registro de fases (PHASE_CLASSES)
     │           ├── base.py                # PhaseSection: clase base de una fase
@@ -185,6 +195,8 @@ repositorio, pero la lógica de datos no sabe nada de la interfaz.
 | `services.py`        | Cálculos reutilizables sin interfaz: precio, detección de la fase actual y autocompletado de usuarios (historial → AD). | Servicios |
 | `directorio_ad.py`   | Búsquedas de estudiantes en el Active Directory (solo lectura).                  | Adaptador |
 | `prusaslicer.py`     | Lee gramos y tiempo del G-code de PrusaSlicer (texto o binario) o slicea un 3MF/STL con su consola. | Adaptador |
+| `correos.py`         | Asunto y cuerpo HTML de los correos al usuario a partir de los datos de la boleta. | Plantillas |
+| `outlook.py`         | Abre un correo como borrador en Outlook clásico (nunca lo envía solo).           | Adaptador |
 | `ui/main_window.py`  | Ventana principal: actúa como **controlador** entre la vista y el repositorio.   | Separación vista/lógica |
 | `ui/theme.py`        | Colores de cada fase y fuentes. Único lugar con la apariencia visual.            | Configuración centralizada |
 | `ui/boleta_form.py`  | **Orquestador** del formulario: arma las secciones desplegables, navega y guarda; no conoce el detalle de cada fase. | Separación vista/lógica |

@@ -24,8 +24,8 @@ _Última revisión: 2026-11-09._
 |---|------|--------------|
 | 1 | Recepción | operador, fecha/hora, nombre del usuario, cuenta, carrera, carné, teléfono, uso (+detalle), pieza, **color del filamento**, observaciones, copias, material, resolución, relleno |
 | 2 | Revisión y Preparación | gramos de material, tiempo de impresión, **precio** (= g × `PRECIO_POR_GRAMO`, 50 ₡), **tipo de impresora** (MK4S / Core One Plus / Cualquiera) |
-| 3 | Impresión | confirmación del usuario, impresora (solo del tipo pedido), envío de correo, **lista de fallos** (solo se agregan, no se eliminan), **notas de impresión** |
-| 4 | Despegado de Piezas | observaciones, ¿imprimió bien?, correo |
+| 3 | Impresión | confirmación del usuario (botón ✉ solicitar autorización), impresora (solo del tipo pedido), envío de correo (botón ✉ inicio), **lista de fallos** (solo se agregan, no se eliminan), **notas de impresión** |
+| 4 | Despegado de Piezas | observaciones, ¿imprimió bien?, correo (botón ✉ finalización) |
 | 5 | Entrega de Piezas | verificación de cobro, recibido conforme |
 | 6 | Reimpresión | observaciones, gramos, tiempo, precio |
 | 7 | Cancelación | motivo de cancelación |
@@ -105,6 +105,21 @@ desde el campo Nombre y reemplazo de datos al cambiar de persona.
   correo o carné. Los estudiantes no suelen tener teléfono en el AD.
 - Las consultas al AD corren en segundo plano (`BoletaForm.en_segundo_plano`).
   Si la PC no está en el dominio, simplemente no se autocompleta nada.
+
+## Correos por Outlook (implementado)
+
+- Plantillas en `src/boletas/correos.py` (sin UI), copiadas de los correos que
+  el LAIMI enviaba a mano: autorización (costo), inicio y finalización. El
+  asunto lleva `<Nombre_Pieza> (BOLETA <ID>)`; el destinatario es
+  `Cuenta + AD_DOMINIO_CORREO`.
+- `src/boletas/outlook.py` crea el correo con COM (`Outlook.Application`) vía
+  PowerShell y lo **muestra** (`Display`), nunca lo envía: el operador revisa
+  y pulsa Enviar. Solo funciona con Outlook clásico (el "Outlook nuevo" no
+  tiene COM). La primera vez Outlook puede tardar en abrir (timeout 120 s).
+- Botones en `ui/enviar_correo.py`: al abrir el borrador marcan la casilla
+  correspondiente (autorización → `Confirmacion_Usuario` = «Correo
+  Institucional»; inicio → `F3_Envio_Correo`; finalización → `F4_Envio_Correo`).
+- Los emojis de los textos son aproximados a los de la plantilla original.
 
 ## PrusaSlicer (implementado)
 
