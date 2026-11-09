@@ -7,9 +7,9 @@ crear) un único archivo y registrarlo en `phases/__init__.py`, sin tocar el
 código de las demás fases ni el del formulario.
 
 Visualmente cada fase es una barra de color (como en la boleta impresa) que al
-hacer clic despliega u oculta su contenido. Las fases posteriores a la fase
-actual están **bloqueadas** (🔒, barra atenuada): no se pueden desplegar hasta
-completar la fase actual y avanzar con "Siguiente".
+hacer clic despliega u oculta su contenido. Una fase cuyas fases previas no
+están completas está **bloqueada** (🔒, barra atenuada); en cuanto se
+completan, un clic en su barra la abre y la hace la fase actual.
 
 Contrato que puede implementar cada fase:
     index              -> índice de la fase (0..6), enlaza con config.FASES (obligatorio)
@@ -101,14 +101,17 @@ class PhaseSection:
         if self.expanded:
             self.collapse()
         elif self.is_locked():
-            actual = config.FASES[self.form.current_index()]
+            pendiente = self.form.primera_fase_incompleta(self.index)
+            pendiente = config.FASES[pendiente if pendiente is not None else self.form.current_index()]
+            faltan = self.form._campos_faltantes(config.FASES.index(pendiente))
             messagebox.showinfo(
                 "Fase bloqueada",
-                f"Primero complete la fase actual ({actual}) y pulse «Siguiente».",
+                f"Primero complete la fase «{pendiente}».\n\nFaltan:\n"
+                + "\n".join(f"• {campo}" for campo in faltan),
                 parent=self.form,
             )
         else:
-            self.expand()
+            self.form.open_phase(self.index)
 
     def expand(self):
         if not self.expanded and not self.is_locked():
@@ -235,6 +238,60 @@ class PhaseSection:
             cell, text="Hoy", width=50, fg_color=self.color, hover_color=self.hover_color,
             command=lambda: self.form.set_datetime(fecha_key, hora_key),
         ).pack(side="left", padx=(8, 0))
+
+    def duration_field(self, row, col, key, text):
+        """Etiqueta + dos campos (horas y minutos) que se guardan juntos como "H:MM" en `vars[key]`.
+
+        Si las horas o los minutos no son números, `vars[key]` queda vacío (y la
+        validación de obligatorios lo marca). Los minutos de más se pasan a
+        horas (0 h 90 min -> "1:30").
+        """
+        self.label(row, col, text, "Horas y minutos")
+        cell = self.cell(row, col + 1, sticky="ew")
+        var = self.vars[key] = tk.StringVar()
+        horas, minutos = tk.StringVar(), tk.StringVar()
+        sincronizando = [False]
+
+        for parte, unidad in ((horas, "h"), (minutos, "min")):
+            ctk.CTkEntry(cell, textvariable=parte, width=60, border_color=theme.SEPARATOR,
+                         font=theme.font(12), justify="center").pack(side="left")
+            ctk.CTkLabel(cell, text=unidad, font=theme.font(12), text_color=theme.TEXT).pack(side="left", padx=(4, 12))
+
+        def desde_campos(*_):
+            if sincronizando[0]:
+                return
+            h, m = horas.get().strip(), minutos.get().strip()
+            sincronizando[0] = True
+            try:
+                if not h and not m:
+                    var.set('')
+                elif (h or "0").isdigit() and (m or "0").isdigit():
+                    total = int(h or 0) * 60 + int(m or 0)
+                    var.set(f"{total // 60}:{total % 60:02d}" if total else '')
+                else:
+                    var.set('')
+            finally:
+                sincronizando[0] = False
+
+        def desde_variable(*_):
+            if sincronizando[0]:
+                return
+            sincronizando[0] = True
+            try:
+                partes = var.get().strip().split(":")
+                if len(partes) == 2:
+                    horas.set(partes[0].strip())
+                    minutos.set(partes[1].strip())
+                else:
+                    horas.set(var.get().strip())
+                    minutos.set('')
+            finally:
+                sincronizando[0] = False
+
+        horas.trace_add('write', desde_campos)
+        minutos.trace_add('write', desde_campos)
+        var.trace_add('write', desde_variable)
+        return cell
 
     def text_area(self, row, key, text, hint=None, height=110):
         """Etiqueta + cuadro de texto multilínea que ocupa el resto de la fila.

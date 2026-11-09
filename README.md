@@ -76,10 +76,14 @@ gramos/tiempo aparecen en "Sin programar".
   ya tiene operador y **● FASE ACTUAL** en la fase en curso.
 - Las opciones (uso, material, resolución, relleno, impresora...) se marcan
   como en el papel, con casillas.
-- **Las fases posteriores a la actual están bloqueadas (🔒)**: no se pueden
-  abrir hasta completar la fase actual y pulsar **Siguiente**. El selector de
-  Fase Actual tampoco deja saltar fases incompletas; la **Cancelación** solo
-  exige la Recepción completa.
+- **Una fase está bloqueada (🔒) mientras las anteriores no estén completas.**
+  Al completarlas se desbloquea y se abre con un clic en su barra (igual que
+  **Siguiente**). El selector de Fase Actual tampoco deja saltar fases
+  incompletas; la **Cancelación** solo exige la Recepción completa.
+- Volver a una fase anterior para corregir algo no retrocede la boleta: al
+  guardar, queda en la fase más avanzada a la que se llegó.
+- El **tiempo de impresión** se escribe en dos campos (horas y minutos) y se
+  guarda como `H:MM`.
 - La barra inferior tiene **Anterior / Siguiente** (valida los campos
   obligatorios antes de avanzar), el selector de **Fase Actual**,
   **Expandir todo / Contraer todo** y **Guardar Cambios**.

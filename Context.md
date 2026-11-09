@@ -36,10 +36,14 @@ _Última revisión: 2026-11-09._
   (Curso/Evento → Asistencia → Personal) y luego por fecha de recepción.
 - Validación de campos obligatorios al avanzar de fase y al guardar
   (`catalogo.campos_obligatorios`, basado en `config.REQUIRED_FIELDS`).
-- **Bloqueo de fases:** solo se usan la fase actual y las anteriores; para
-  avanzar hay que completar la actual. Cancelación (`FASES_SIN_ORDEN`) solo
-  exige la Recepción. Al abrir una boleta se respeta la `Fase Actual` guardada
+- **Bloqueo de fases:** una fase se abre si las anteriores están completas (o
+  si ya se llegó a ella); un clic en su barra la hace fase actual. Cancelación
+  (`FASES_SIN_ORDEN`) solo exige la Recepción. Al guardar, `Fase Actual` =
+  máx(fase más avanzada alcanzada, fase detectada por operadores), así volver
+  atrás no retrocede la boleta. Al abrir se respeta la `Fase Actual` guardada
   si las fases previas están completas.
+- Tiempo de impresión (Revisión): dos campos (horas/minutos) que se guardan
+  juntos en `Tiempo_Impresion_HHMM` como `H:MM` (`PhaseSection.duration_field`).
 - Columnas nuevas: `Color_Filamento` (F1) y `Tipo_Impresora` (F2); el
   repositorio las añade a Excels viejos al cargar.
 

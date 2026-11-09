@@ -63,20 +63,9 @@ class Phase1Recepcion(PhaseSection):
         self.uso_detalle_entry = self.entry(frame, 'Uso_Detalle', state='disabled')
         self.uso_detalle_entry.grid(row=row, column=3, sticky="ew", padx=(0, PAD_X), pady=PAD_Y)
 
-        # ARCHIVO | COLOR, y debajo las observaciones del usuario.
         row = self.new_row()
         self.field(row, 0, 'Nombre_Pieza', "ARCHIVO", "Boleta-carné-n.º de impresión")
-        self.label(row, 2, "COLOR DEL\nFILAMENTO", "Según el material")
-        self.vars['Color_Filamento'] = tk.StringVar()
-        self.color_combo = ctk.CTkComboBox(
-            frame, variable=self.vars['Color_Filamento'], values=[], state='disabled',
-            border_color=theme.SEPARATOR, button_color=self.color, button_hover_color=self.hover_color,
-            font=theme.font(12), dropdown_font=theme.font(12),
-        )
-        self.color_combo.grid(row=row, column=3, sticky="ew", padx=(0, PAD_X), pady=PAD_Y)
-
-        row = self.new_row()
-        self.text_area(row, 'Observaciones_Usuario', "OBSERVACIONES\nDEL USUARIO", height=60)
+        self.field(row, 2, 'Observaciones_Usuario', "OBSERVACIONES\nDEL USUARIO")
 
         row = self.new_row()
         self.label(row, 0, "CANTIDAD DE COPIAS", "Marcar 0 si es solo la original")
@@ -91,6 +80,17 @@ class Phase1Recepcion(PhaseSection):
                          command=self._on_material_selected, item_width=60)
         self.material_detalle_entry = self.entry(materiales, 'Material_Otro_Detalle', width=160, state='disabled')
         self.material_detalle_entry.grid(row=0, column=len(config.MATERIAL_OPTIONS), padx=(0, 4))
+
+        # COLOR: debajo del material, con los colores disponibles de ese material.
+        row = self.new_row()
+        self.label(row, 0, "COLOR DEL\nFILAMENTO", "Según el material")
+        self.vars['Color_Filamento'] = tk.StringVar()
+        self.color_combo = ctk.CTkComboBox(
+            frame, variable=self.vars['Color_Filamento'], values=[], state='disabled', width=200,
+            border_color=theme.SEPARATOR, button_color=self.color, button_hover_color=self.hover_color,
+            font=theme.font(12), dropdown_font=theme.font(12),
+        )
+        self.color_combo.grid(row=row, column=1, sticky="w", padx=(0, PAD_X), pady=PAD_Y)
 
         # RESOLUCIÓN | RELLENO lado a lado, como en la boleta.
         row = self.new_row()

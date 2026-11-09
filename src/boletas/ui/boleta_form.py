@@ -4,14 +4,17 @@ Imita la boleta impresa: todas las fases están en la misma ventana, una debajo 
 otra, cada una con su barra de color que se despliega u oculta al hacer clic.
 
 Esta clase es el **orquestador**: arma la ventana, la navegación entre fases y la
-carga/guardado de datos, pero NO conoce los detalles de cada fase.
-
-Reglas de navegación: solo se puede usar la fase actual y las anteriores. Para
-pasar a una fase posterior (con "Siguiente" o con el selector de Fase Actual)
-la fase actual, y las intermedias, tienen que estar completas. Las fases de
-`config.FASES_SIN_ORDEN` (Cancelación) solo exigen la Recepción completa. Cada fase es
+carga/guardado de datos, pero NO conoce los detalles de cada fase. Cada fase es
 una clase independiente en `ui/phases/` (ver ese paquete). Para cambiar o añadir
 una fase no se toca este archivo, solo el de la fase correspondiente.
+
+Reglas de navegación:
+- Una fase se puede abrir si todas las anteriores están completas (o si ya se
+  llegó a ella). Al completar una fase, la siguiente se abre con un clic en su
+  barra (equivale a "Siguiente"). Las fases de `config.FASES_SIN_ORDEN`
+  (Cancelación) solo exigen la Recepción completa.
+- Volver a una fase anterior no "retrocede" la boleta: al guardar, `Fase Actual`
+  es la fase más avanzada a la que se llegó (o la detectada por operadores).
 """
 
 import threading
@@ -39,6 +42,10 @@ class BoletaForm(ctk.CTkToplevel):
         self.vars = {'Fase Actual': tk.StringVar(value=config.FASES[0])}
         # Última fase actual aceptada (para revertir el selector si no se puede avanzar).
         self._fase_confirmada = 0
+        # Fase más avanzada a la que se llegó (sin contar Cancelación): es la
+        # que se guarda como `Fase Actual` aunque se vuelva a fases anteriores.
+        self._fase_maxima = 0
+        self._refresco_pendiente = False
 
         if self.boleta_id:
             self.title(f"Editando Boleta #{self.boleta_id}")
@@ -62,6 +69,9 @@ class BoletaForm(ctk.CTkToplevel):
             antes = set(self.vars)
             phase.build(self.scroll)
             phase.keys = set(self.vars) - antes  # Campos propios de la fase.
+        for nombre, var in self.vars.items():
+            if nombre != 'Fase Actual':
+                var.trace_add('write', self._programar_refresco)
 
         # En Windows, CTkToplevel a veces se abre detrás de la ventana principal.
         self.after(200, self._bring_to_front)
@@ -174,8 +184,44 @@ class BoletaForm(ctk.CTkToplevel):
             canvas.yview_moveto(phase.container.winfo_y() / altura)
 
     def phase_accessible(self, index):
-        """Solo se pueden usar la fase actual y las anteriores."""
-        return index <= self.current_index()
+        """Se puede abrir si ya se llegó a ella o si las fases previas están completas."""
+        if index <= max(self.current_index(), self._fase_maxima):
+            return True
+        return self.primera_fase_incompleta(index) is None
+
+    def primera_fase_incompleta(self, index):
+        """Primera fase que falta completar para abrir `index` (o None)."""
+        previas = [0] if config.FASES[index] in config.FASES_SIN_ORDEN else range(index)
+        for indice in previas:
+            if config.FASES[indice] in config.FASES_SIN_ORDEN:
+                continue
+            if self._campos_faltantes(indice):
+                return indice
+        return None
+
+    def open_phase(self, index):
+        """Clic en la barra de una fase desbloqueada.
+
+        Si está más adelante que la actual, pasa a ser la fase actual (como
+        pulsar "Siguiente"); la Cancelación solo se despliega.
+        """
+        if index > self.current_index() and config.FASES[index] not in config.FASES_SIN_ORDEN:
+            self.phases[self.current_index()].collapse()
+            self.set_current_phase(index)
+        else:
+            self.phases[index].expand()
+
+    def _programar_refresco(self, *_):
+        """Al escribir en cualquier campo, actualiza los candados (una vez por ciclo)."""
+        if not self._refresco_pendiente:
+            self._refresco_pendiente = True
+            self.after_idle(self._refrescar_barras)
+
+    def _refrescar_barras(self):
+        self._refresco_pendiente = False
+        if self.winfo_exists():
+            for phase in self.phases:
+                phase.refresh_header()
 
     def expand_all(self):
         for phase in self.phases:
@@ -214,6 +260,8 @@ class BoletaForm(ctk.CTkToplevel):
     def _on_current_phase_changed(self):
         index = self.current_index()
         self._fase_confirmada = index
+        if config.FASES[index] not in config.FASES_SIN_ORDEN:
+            self._fase_maxima = max(self._fase_maxima, index)
         color = theme.PHASE_COLORS[index]
         self.fase_menu.configure(fg_color=color, button_color=theme.darken(color, 0.1),
                                  button_hover_color=theme.darken(color, 0.25))
@@ -330,6 +378,9 @@ class BoletaForm(ctk.CTkToplevel):
                     return
 
         form_data = {key: var.get() for key, var in self.vars.items()}
+        # Si se volvió a una fase anterior, la boleta sigue en la más avanzada.
+        detectada = config.FASES.index(PhaseDetector.detectar_fase_actual(form_data))
+        form_data['Fase Actual'] = config.FASES[max(self._fase_maxima, detectada)]
         if not self.boleta_id:
             form_data['ID Boleta'] = self.parent_app.get_next_id()
 

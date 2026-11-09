@@ -22,7 +22,7 @@ class Phase2Revision(PhaseSection):
         row = self.new_row()
         self.field(row, 0, 'Uso_Material_g', "USO DE MATERIAL (g)")
         self.vars['Uso_Material_g'].trace_add('write', self._calculate_price)
-        self.field(row, 2, 'Tiempo_Impresion_HHMM', "TIEMPO DE IMPRESIÓN", "HH:MM")
+        self.duration_field(row, 2, 'Tiempo_Impresion_HHMM', "TIEMPO DE IMPRESIÓN")
 
         row = self.new_row()
         self.field(row, 0, 'Precio', "PRECIO (₡)", "Calculado automáticamente", state='readonly')
