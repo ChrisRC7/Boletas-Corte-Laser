@@ -18,6 +18,8 @@ Contrato que puede implementar cada fase:
     on_collect(out)    -> añade datos específicos al diccionario a guardar (opcional)
     on_valores_externos(claves) -> reacciona a variables llenadas desde fuera,
                           p. ej. desde PrusaSlicer (opcional)
+    problemas()        -> errores propios de la fase que impiden avanzar o
+                          guardar (opcional)
 
 El título y el color de la barra salen de config.FASES y theme.PHASE_COLORS.
 """
@@ -46,6 +48,7 @@ PATRON_HORA = r"[\d:]{0,5}|\d{1,2}:\d{2}(\s?[aApP]\.?\s?[mM]?\.?|\s)"  # hh:mm a
 PATRON_HORAS = r"\d{0,3}"                                          # tiempo: horas
 PATRON_MINUTOS = r"\d{0,4}"                                        # tiempo: minutos (90 -> 1 h 30)
 PATRON_ENTERO = r"\d{0,4}"                                         # cantidades (copias)
+PATRON_DECIMAL = r"\d{0,6}([.,]\d{0,2})?"                          # gramos (12.5 o 12,5)
 PATRON_TELEFONO = r"[\d\s+()-]{0,20}"                              # dígitos, espacios, +, -, ()
 
 
@@ -165,6 +168,10 @@ class PhaseSection:
 
     def on_valores_externos(self, claves):
         """Se llama tras llenar `vars[clave]` desde fuera (p. ej. PrusaSlicer) para refrescar la fase."""
+
+    def problemas(self):
+        """Errores propios de la fase (además de obligatorios y fecha/hora), como textos legibles."""
+        return []
 
     # --- Filas de la cuadrícula -------------------------------------------
     def new_row(self):

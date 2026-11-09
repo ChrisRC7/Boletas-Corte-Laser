@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 
 from . import catalogo, config
 from .fechas import leer_fecha_hora
-from .services import PhaseDetector
+from .services import PhaseDetector, PricingService
 
 SIN_COLOR = "(sin color)"
 
@@ -105,11 +105,8 @@ def minutos_desde_texto(texto):
 
 
 def gramos_desde_texto(texto):
-    try:
-        gramos = float(str(texto or "").strip().replace(",", "."))
-    except ValueError:
-        return None
-    return gramos if gramos > 0 else None
+    gramos = PricingService.gramos(texto)
+    return gramos if gramos else None  # 0 g no se puede planificar.
 
 
 def _filamento_de(registro):

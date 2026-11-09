@@ -4,6 +4,8 @@ Separar estos cálculos de los widgets permite probarlos por separado y reusarlo
 sin abrir ventanas.
 """
 
+import math
+
 from . import config
 from .directorio_ad import es_carne, es_correo, es_cuenta, normalizar_cuenta
 
@@ -12,16 +14,22 @@ class PricingService:
     """Cálculo del precio a partir del material usado."""
 
     @staticmethod
+    def gramos(texto):
+        """'12,5' o '12.5' -> 12.5. None si no es un número finito >= 0 ('-3', 'nan', 'abc')."""
+        try:
+            gramos = float(str(texto or "").strip().replace(",", "."))
+        except ValueError:
+            return None
+        return gramos if math.isfinite(gramos) and gramos >= 0 else None
+
+    @staticmethod
     def calcular(gramos_texto):
         """Devuelve el precio formateado a partir de los gramos (como texto).
 
         Si el valor no es un número válido devuelve una cadena vacía.
         """
-        try:
-            gramos = float(gramos_texto)
-            return f"{gramos * config.PRECIO_POR_GRAMO:.2f}"
-        except (ValueError, TypeError):
-            return ""
+        gramos = PricingService.gramos(gramos_texto)
+        return "" if gramos is None else f"{gramos * config.PRECIO_POR_GRAMO:.2f}"
 
 
 class PhaseDetector:

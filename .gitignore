@@ -8,3 +8,12 @@ build/
 *.swp
 .DS_Store
 Thumbs.db
+# Artefactos de PyInstaller (el .exe se distribuye fuera del repositorio)
+dist/
+*.spec
+
+# Datos y configuración locales (contienen datos personales de usuarios)
+*.xlsx
+~boletas_*.xlsx
+configuracion.json
+configuracion.json.tmp

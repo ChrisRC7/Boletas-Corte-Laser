@@ -180,6 +180,11 @@ class PlanWindow(ctk.CTkToplevel):
             os.startfile(ruta, "print")
         except OSError:
             # Sin impresora predeterminada: se abre el reporte para imprimirlo a mano.
-            os.startfile(ruta)
+            try:
+                os.startfile(ruta)
+            except OSError:
+                messagebox.showerror("Imprimir", "No se pudo enviar a la impresora ni abrir el reporte.\n"
+                                                 f"Está guardado en:\n{ruta}", parent=self)
+                return
             messagebox.showinfo("Imprimir", "No se pudo enviar a la impresora; se abrió el reporte "
                                             "para imprimirlo manualmente.", parent=self)

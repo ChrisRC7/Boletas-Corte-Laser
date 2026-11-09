@@ -100,9 +100,9 @@ class Phase3Impresion(PhaseSection):
 
     def on_populate(self, boleta_data):
         self._actualizar_tipo()  # La impresora se carga después que el tipo.
-        import pandas as pd
-        fallo_lista_str = boleta_data.get('Fallo_Lista', '')
-        if fallo_lista_str and not pd.isna(fallo_lista_str) and str(fallo_lista_str).strip():
+        # El repositorio ya devuelve los vacíos como '' (nunca NaN).
+        fallo_lista_str = boleta_data.get('Fallo_Lista', '') or ''
+        if str(fallo_lista_str).strip():
             try:
                 fallos = json.loads(str(fallo_lista_str))
             except json.JSONDecodeError:
@@ -130,6 +130,14 @@ class Phase3Impresion(PhaseSection):
             compatible = catalogo.tipo_compatible(tipo, catalogo.tipo_de_impresora(numero))
             # La ya elegida queda habilitada para no "perderla" al editar boletas viejas.
             boton.configure(state='normal' if compatible or numero == seleccionada else 'disabled')
+
+    def problemas(self):
+        """La impresora elegida debe ser del tipo pedido (pudo cambiar en la Revisión)."""
+        numero = self.vars['Impresora_Num'].get().strip()
+        tipo = self.vars['Tipo_Impresora'].get().strip()
+        if numero and not catalogo.tipo_compatible(tipo, catalogo.tipo_de_impresora(numero)):
+            return [f"La impresora {numero} no es del tipo pedido en la Revisión ({tipo})."]
+        return []
 
     # --- Correos -----------------------------------------------------------
     def _marcar_confirmacion_por_correo(self):

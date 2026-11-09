@@ -162,8 +162,7 @@ Boletas Corte Laser/
     │           ├── fase4_despegado.py
     │           ├── fase5_entrega.py
     │           └── fase6_cancelacion.py
-    ├── main.spec              # Configuración de PyInstaller
-    └── build/, dist/          # Artefactos generados al empaquetar
+    └── build/, dist/, main.spec  # Generados al empaquetar (ignorados por git)
 ```
 
 ---

@@ -23,7 +23,6 @@ from tkinter import messagebox
 from datetime import datetime
 
 import customtkinter as ctk
-import pandas as pd
 
 from .. import catalogo, config, fechas
 from ..services import PhaseDetector
@@ -77,12 +76,34 @@ class BoletaForm(ctk.CTkToplevel):
         self.after(200, self._bring_to_front)
 
         if self.boleta_id:
-            self.populate_form()
+            if not self.populate_form():
+                return
         else:
             self.set_datetime('F1_Fecha', 'F1_Hora')
             self.set_current_phase(0)
             if copiar_de:
                 self.copiar_recepcion(copiar_de)
+
+        # Datos tal como se abrieron: al cerrar con la X se avisa si cambiaron.
+        self._datos_iniciales = self._datos_formulario()
+        self.protocol("WM_DELETE_WINDOW", self._al_cerrar)
+
+    # --- Cierre ---------------------------------------------------------------
+    def _datos_formulario(self):
+        """Lo que se guardaría ahora (variables + datos propios de cada fase, como los fallos)."""
+        datos = {key: var.get() for key, var in self.vars.items()}
+        for phase in self.phases:
+            phase.on_collect(datos)
+        return datos
+
+    def _al_cerrar(self):
+        """Cerrar con la X: si hay cambios sin guardar, se pide confirmación."""
+        if self._datos_formulario() != self._datos_iniciales and not messagebox.askyesno(
+                "Cambios sin guardar",
+                "Hay cambios sin guardar en esta boleta.\n\n¿Cerrar de todas formas y descartarlos?",
+                icon="warning", parent=self):
+            return
+        self.destroy()
 
     # --- Construcción de la ventana ---------------------------------------
     def _build_banner(self):
@@ -132,6 +153,9 @@ class BoletaForm(ctk.CTkToplevel):
                       command=self.guardar_cambios).pack(side="right", padx=12, pady=10)
 
     def _bring_to_front(self):
+        # La ventana pudo cerrarse antes (p. ej. si la boleta no existía).
+        if not self.winfo_exists():
+            return
         self.lift()
         self.focus_force()
 
@@ -299,6 +323,7 @@ class BoletaForm(ctk.CTkToplevel):
         self._normalizar_fecha_hora(phase_index)
         problemas = [f"Falta: {name}" for name in self._campos_faltantes(phase_index)]
         problemas += self._formatos_invalidos(phase_index)
+        problemas += self.phases[phase_index].problemas()
         if problemas:
             messagebox.showwarning(
                 "Campos Obligatorios",
@@ -363,11 +388,12 @@ class BoletaForm(ctk.CTkToplevel):
 
     # --- Carga / guardado --------------------------------------------------
     def populate_form(self):
+        """Carga la boleta guardada. Devuelve False (y cierra la ventana) si no existe."""
         boleta_data = self.parent_app.get_boleta_by_id(self.boleta_id)
         if boleta_data is None:
             messagebox.showerror("Error", "No se encontró la boleta.", parent=self)
             self.destroy()
-            return
+            return False
 
         self._cargar_valores(boleta_data, self.vars)
 
@@ -376,13 +402,15 @@ class BoletaForm(ctk.CTkToplevel):
             phase.on_populate(boleta_data)
 
         self.set_current_phase(self._fase_al_abrir(boleta_data))
+        return True
 
     def _cargar_valores(self, boleta_data, keys):
         """Pone en las variables `keys` los valores de una boleta guardada."""
         for key in keys:
             var = self.vars[key]
+            # El repositorio ya devuelve los vacíos como '' (nunca NaN).
             value = boleta_data.get(key, '')
-            if pd.isna(value):
+            if value is None:
                 value = ''
             if isinstance(var, tk.BooleanVar):
                 var.set(str(value).lower() == 'true')

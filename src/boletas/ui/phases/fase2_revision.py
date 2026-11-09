@@ -12,7 +12,7 @@ import tkinter as tk
 from ... import catalogo, config
 from ...services import PricingService
 from ..importar_slicer import fila_prusaslicer
-from .base import PhaseSection
+from .base import PhaseSection, PATRON_DECIMAL
 
 
 class Phase2Revision(PhaseSection):
@@ -22,7 +22,7 @@ class Phase2Revision(PhaseSection):
         self.operator_row()
 
         row = self.new_row()
-        self.field(row, 0, 'Uso_Material_g', "USO DE MATERIAL (g)")
+        self.restringir(self.field(row, 0, 'Uso_Material_g', "USO DE MATERIAL (g)"), PATRON_DECIMAL)
         self.vars['Uso_Material_g'].trace_add('write', self._calculate_price)
         self.duration_field(row, 2, 'Tiempo_Impresion_HHMM', "TIEMPO DE IMPRESIÓN")
         fila_prusaslicer(self, 'Uso_Material_g', 'Tiempo_Impresion_HHMM', parametros=True)
@@ -37,6 +37,13 @@ class Phase2Revision(PhaseSection):
                              catalogo.opciones_tipo_impresora(), item_width=150)
         else:
             self.vars['Tipo_Impresora'] = tk.StringVar()
+
+    def problemas(self):
+        # Valores viejos del Excel no pasan por la restricción de teclado.
+        gramos = self.vars['Uso_Material_g'].get().strip()
+        if gramos and PricingService.gramos(gramos) is None:
+            return [f"{config.FIELD_NAMES['Uso_Material_g']} no es un número válido («{gramos}»)."]
+        return []
 
     def _calculate_price(self, *args):
         self.vars['Precio'].set(PricingService.calcular(self.vars['Uso_Material_g'].get()))

@@ -74,8 +74,12 @@ _Última revisión: 2026-11-09._
 
 - Rama de trabajo: `Chris-Development`; rama principal: `main` (PRs en GitHub,
   `ChrisRC7`).
-- `src/dist/main.exe` y `src/dist/control_impresiones.xlsx` están versionados
-  (binario de distribución y datos de ejemplo). `build/` está ignorado.
+- `build/`, `dist/`, `*.spec`, los `.xlsx` y `configuracion.json` están
+  ignorados: el `.exe` se distribuye fuera del repositorio y los datos tienen
+  información personal de los usuarios. (Antes de esto, `main.exe` y un Excel
+  de ejemplo estaban versionados y siguen en el historial de git).
+- Con pandas 3 las columnas leídas con `dtype=str` solo aceptan texto: el
+  repositorio convierte todo a texto al guardar (`_como_texto`).
 - No hay tests automáticos.
 
 ## Peticiones pendientes (de "Cambios que quiere Aguirre.md")

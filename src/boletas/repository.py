@@ -88,13 +88,35 @@ class BoletaRepository:
             if os.path.exists(temporal):
                 os.remove(temporal)
 
-    def _guardar_o_deshacer(self, anterior):
-        """Guarda; si falla, vuelve la tabla al estado `anterior` y relanza el error."""
+    def _modificar_y_guardar(self, cambio):
+        """Aplica `cambio()` sobre la tabla y guarda.
+
+        Si falla el cambio o el guardado, la tabla vuelve a como estaba y se
+        relanza el error: lo que hay en memoria nunca queda a medias.
+        """
+        anterior = self.df.copy()
         try:
+            cambio()
             self.save()
         except Exception:
             self.df = anterior
             raise
+
+    @staticmethod
+    def _como_texto(valor):
+        """Valor listo para guardar: todo se guarda como texto (True -> 'True').
+
+        Con pandas 3 las columnas leídas con `dtype=str` solo aceptan texto o
+        vacío; un booleano (p. ej. de una casilla) lanzaría TypeError.
+        """
+        if valor is None or isinstance(valor, str):
+            return valor
+        try:
+            if pd.isna(valor):
+                return valor
+        except (TypeError, ValueError):
+            pass
+        return str(valor)
 
     # --- Consultas --------------------------------------------------------
     def all(self):
@@ -107,13 +129,14 @@ class BoletaRepository:
         El campo especial "Operador" busca en las columnas de operador de todas
         las fases.
         """
+        # regex=False: se busca el texto tal cual ("(" o "." no son patrones).
         term = term.strip()
         if field == "Operador":
             mask = False
             for columna in config.COLUMNAS_OPERADOR:
-                mask = mask | self.df[columna].str.contains(term, case=False, na=False)
+                mask = mask | self.df[columna].astype(str).str.contains(term, case=False, na=False, regex=False)
             return self.df[mask]
-        return self.df[self.df[field].astype(str).str.contains(term, case=False, na=False)]
+        return self.df[self.df[field].astype(str).str.contains(term, case=False, na=False, regex=False)]
 
     def filter_by_phase(self, fase):
         """Devuelve las boletas de una fase.
@@ -197,10 +220,13 @@ class BoletaRepository:
 
         Si no se puede guardar, la boleta no queda añadida y se lanza el error.
         """
-        anterior = self.df
-        nuevo = pd.DataFrame([record])
-        self.df = pd.concat([self.df, nuevo], ignore_index=True)
-        self._guardar_o_deshacer(anterior)
+        fila = {clave: valor if clave == 'ID Boleta' else self._como_texto(valor)
+                for clave, valor in record.items()}
+
+        def cambio():
+            self.df = pd.concat([self.df, pd.DataFrame([fila])], ignore_index=True)
+
+        self._modificar_y_guardar(cambio)
 
     def update(self, boleta_id, form_data):
         """Actualiza los campos de una boleta existente y guarda.
@@ -211,12 +237,14 @@ class BoletaRepository:
         idx_list = self.df.index[self.df['ID Boleta'] == boleta_id].tolist()
         if not idx_list:
             return False
-        anterior = self.df.copy()
         idx = idx_list[0]
-        for key, value in form_data.items():
-            if key in self.df.columns:
-                self.df.loc[idx, key] = value
-        self._guardar_o_deshacer(anterior)
+
+        def cambio():
+            for key, value in form_data.items():
+                if key in self.df.columns and key != 'ID Boleta':
+                    self.df.loc[idx, key] = self._como_texto(value)
+
+        self._modificar_y_guardar(cambio)
         return True
 
     def delete(self, boleta_id):
@@ -227,7 +255,8 @@ class BoletaRepository:
         idx_to_drop = self.df.index[self.df['ID Boleta'] == boleta_id]
         if idx_to_drop.empty:
             return False
-        anterior = self.df
-        self.df = self.df.drop(idx_to_drop)
-        self._guardar_o_deshacer(anterior)
+        def cambio():
+            self.df = self.df.drop(idx_to_drop)
+
+        self._modificar_y_guardar(cambio)
         return True
