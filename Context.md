@@ -106,6 +106,21 @@ desde el campo Nombre y reemplazo de datos al cambiar de persona.
 - Las consultas al AD corren en segundo plano (`BoletaForm.en_segundo_plano`).
   Si la PC no está en el dominio, simplemente no se autocompleta nada.
 
+## PrusaSlicer (implementado)
+
+- Módulo `src/boletas/prusaslicer.py` (sin UI) y botón en
+  `ui/importar_slicer.py`, usado en la Revisión y la Reimpresión.
+- G-code de texto: busca `; estimated printing time (normal mode) = …` y
+  `; total filament used [g] = …` al final del archivo. `.bgcode` (MK4/Core
+  One): lee los bloques de metadatos `clave=valor` (sin comprimir o deflate).
+- `.3mf`: se slicea con la configuración del propio proyecto. `.stl`/`.obj`:
+  necesita `PRUSASLICER_PERFIL` (un `.ini` exportado). Se ejecuta
+  `prusa-slicer-console.exe --export-gcode` en una carpeta temporal.
+- Si el perfil tiene densidad 0, PrusaSlicer da 0 g: se usa
+  `cm³ × filament_density` (o `config.DENSIDAD_FILAMENTO`) y se avisa.
+- El tiempo se redondea hacia arriba al minuto.
+- Probado con PrusaSlicer 2.9.6.
+
 ## Notas de diseño para lo que viene
 
 - **SQLite / Jetson:** reemplazar solo `repository.py` manteniendo la misma

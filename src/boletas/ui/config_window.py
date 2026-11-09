@@ -111,6 +111,15 @@ class ConfigWindow(ctk.CTkToplevel):
                    "Material que trae un rollo de filamento (se usa para el orden de impresión).")
         self._fila(p, 6, 'AD_DOMINIO_CORREO', "Dominio de los correos", v['AD_DOMINIO_CORREO'])
         self._fila(p, 8, 'AD_TIMEOUT_SEGUNDOS', "Espera máxima del AD (s)", v['AD_TIMEOUT_SEGUNDOS'])
+        self._fila(p, 10, 'PRUSASLICER_RUTA', "PrusaSlicer (consola)", v['PRUSASLICER_RUTA'],
+                   "Ruta de prusa-slicer-console.exe. Vacío = buscarlo en Archivos de programa.")
+        self._fila(p, 12, 'PRUSASLICER_PERFIL', "Perfil para STL (.ini)", v['PRUSASLICER_PERFIL'],
+                   "PrusaSlicer > Archivo > Exportar > Exportar configuración. "
+                   "Los .3mf y G-code no lo necesitan.")
+        self._fila(p, 14, 'PRUSASLICER_TIMEOUT_SEGUNDOS', "Espera máxima del slicer (s)",
+                   v['PRUSASLICER_TIMEOUT_SEGUNDOS'])
+        self._fila(p, 16, 'DENSIDAD_FILAMENTO', "Densidad del filamento (g/cm³)", v['DENSIDAD_FILAMENTO'],
+                   "Solo si el perfil de PrusaSlicer no la trae y reporta 0 g.")
 
     def _pestana_opciones(self, p, v):
         self._nota(p, 0, "Escriba las opciones separadas por comas, en el orden en que se muestran.")
@@ -187,6 +196,10 @@ class ConfigWindow(ctk.CTkToplevel):
                 'AD_TIMEOUT_SEGUNDOS': int(_numero(c['AD_TIMEOUT_SEGUNDOS'])),
                 'PRECIO_POR_GRAMO': _numero(c['PRECIO_POR_GRAMO']),
                 'GRAMOS_POR_ROLLO': _numero(c['GRAMOS_POR_ROLLO']),
+                'PRUSASLICER_RUTA': c['PRUSASLICER_RUTA'].strip().strip('"'),
+                'PRUSASLICER_PERFIL': c['PRUSASLICER_PERFIL'].strip().strip('"'),
+                'PRUSASLICER_TIMEOUT_SEGUNDOS': int(_numero(c['PRUSASLICER_TIMEOUT_SEGUNDOS'])),
+                'DENSIDAD_FILAMENTO': float(_numero(c['DENSIDAD_FILAMENTO'])),
                 'PRIORIDAD_POR_DEFECTO': int(_numero(c['PRIORIDAD_POR_DEFECTO'])),
                 'MATERIAL_OPTIONS': _lista_desde_texto(c['MATERIAL_OPTIONS']),
                 'RESOLUCION_OPTIONS': _lista_desde_texto(c['RESOLUCION_OPTIONS'], _numero),

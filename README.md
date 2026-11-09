@@ -48,6 +48,11 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   rellenos, usos/prioridades, impresoras y tipos **sin recompilar**. Se guarda
   en `configuracion.json` (junto al Excel); "Restaurar valores por defecto"
   vuelve a lo de `config.py`.
+- **Desde PrusaSlicer…** (Revisión y Reimpresión): llena los gramos y el tiempo
+  de impresión leyendo el G-code exportado (`.gcode` o `.bgcode`), o sliceando
+  un proyecto `.3mf` (o un `.stl` si hay un perfil `.ini` en la Configuración)
+  con `prusa-slicer-console.exe`. Si el perfil no tiene densidad de filamento
+  los gramos se estiman con el volumen × densidad (`DENSIDAD_FILAMENTO`).
 - **📋 Orden de impresión**: calcula e imprime el orden óptimo del día (ver abajo).
 
 ### Orden de impresión del día
@@ -121,6 +126,7 @@ Boletas Corte Laser/
     │   ├── repository.py      # Acceso a datos (Excel)        [patrón Repository]
     │   ├── services.py        # Lógica de negocio (precio, fase, autocompletado de usuarios)
     │   ├── directorio_ad.py   # Consultas al Active Directory (solo lectura)
+    │   ├── prusaslicer.py     # Gramos y tiempo desde G-code/3MF de PrusaSlicer
     │   └── ui/                # Interfaz gráfica (CustomTkinter)
     │       ├── __init__.py
     │       ├── theme.py       # Colores de cada fase y fuentes (imitan la boleta)
@@ -129,6 +135,7 @@ Boletas Corte Laser/
     │       ├── config_window.py # Ventana de Configuración
     │       ├── plan_window.py # Ventana del orden de impresión
     │       ├── tabla_editable.py # Tabla de filas editable (usada en la Configuración)
+    │       ├── importar_slicer.py # Botón «Desde PrusaSlicer…» de las fases con material
     │       └── phases/        # Una fase por archivo (cada sección es independiente)
     │           ├── __init__.py            # Registro de fases (PHASE_CLASSES)
     │           ├── base.py                # PhaseSection: clase base de una fase
@@ -174,6 +181,7 @@ repositorio, pero la lógica de datos no sabe nada de la interfaz.
 | `repository.py`      | Toda la lectura/escritura del Excel y las consultas (CRUD, búsqueda, filtros).  | **Repository** |
 | `services.py`        | Cálculos reutilizables sin interfaz: precio, detección de la fase actual y autocompletado de usuarios (historial → AD). | Servicios |
 | `directorio_ad.py`   | Búsquedas de estudiantes en el Active Directory (solo lectura).                  | Adaptador |
+| `prusaslicer.py`     | Lee gramos y tiempo del G-code de PrusaSlicer (texto o binario) o slicea un 3MF/STL con su consola. | Adaptador |
 | `ui/main_window.py`  | Ventana principal: actúa como **controlador** entre la vista y el repositorio.   | Separación vista/lógica |
 | `ui/theme.py`        | Colores de cada fase y fuentes. Único lugar con la apariencia visual.            | Configuración centralizada |
 | `ui/boleta_form.py`  | **Orquestador** del formulario: arma las secciones desplegables, navega y guarda; no conoce el detalle de cada fase. | Separación vista/lógica |

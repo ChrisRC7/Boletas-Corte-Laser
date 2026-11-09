@@ -22,6 +22,7 @@ ARCHIVO_AJUSTES = "configuracion.json"
 EDITABLES = [
     'EXCEL_FILE', 'AD_DOMINIO_CORREO', 'AD_TIMEOUT_SEGUNDOS',
     'PRECIO_POR_GRAMO', 'GRAMOS_POR_ROLLO',
+    'PRUSASLICER_RUTA', 'PRUSASLICER_PERFIL', 'PRUSASLICER_TIMEOUT_SEGUNDOS', 'DENSIDAD_FILAMENTO',
     'USOS', 'PRIORIDAD_POR_DEFECTO',
     'MATERIAL_OPTIONS', 'COLORES_POR_MATERIAL',
     'RESOLUCION_OPTIONS', 'RESOLUCION_DEFAULT', 'RELLENO_OPTIONS', 'RELLENO_DEFAULT',
@@ -68,7 +69,9 @@ def validar(valores):
     if valores.get('PRECIO_POR_GRAMO', 0) < 0:
         errores.append("El precio por gramo no puede ser negativo.")
     for nombre, texto in (('GRAMOS_POR_ROLLO', "Los gramos por rollo"),
-                          ('AD_TIMEOUT_SEGUNDOS', "El tiempo de espera del AD")):
+                          ('AD_TIMEOUT_SEGUNDOS', "El tiempo de espera del AD"),
+                          ('PRUSASLICER_TIMEOUT_SEGUNDOS', "El tiempo de espera de PrusaSlicer"),
+                          ('DENSIDAD_FILAMENTO', "La densidad del filamento")):
         if valores.get(nombre, 0) <= 0:
             errores.append(f"{texto} debe ser mayor que 0.")
 

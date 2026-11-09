@@ -75,9 +75,11 @@ src/boletas/planificador.py → orden óptimo de impresión del día (sin UI)
 src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre el Excel)
 src/boletas/services.py     → PricingService, PhaseDetector, UsuarioService (historial → AD)
 src/boletas/directorio_ad.py → DirectorioAD: consultas al AD (solo lectura, vía PowerShell)
+src/boletas/prusaslicer.py  → gramos y tiempo desde G-code/.bgcode/3MF de PrusaSlicer (sin UI)
 src/boletas/ui/main_window.py → App: listado, búsqueda, filtro por fase (controlador)
 src/boletas/ui/boleta_form.py → BoletaForm: orquesta las secciones, navega (bloqueo de fases), valida, guarda
 src/boletas/ui/config_window.py · plan_window.py · tabla_editable.py → Configuración y Orden de impresión
+src/boletas/ui/importar_slicer.py → botón «Desde PrusaSlicer…» (Revisión y Reimpresión)
 src/boletas/ui/phases/      → una PhaseSection por fase + registro PHASE_CLASSES
 src/boletas/ui/theme.py     → colores de cada fase y fuentes
 ```

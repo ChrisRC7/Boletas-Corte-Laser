@@ -1,10 +1,11 @@
 """Fase 6: Reimpresión.
 
-Igual que la Revisión, registra material/tiempo y calcula su propio precio.
+Igual que la Revisión, registra material/tiempo (también desde PrusaSlicer) y calcula su propio precio.
 """
 
 from .base import PhaseSection
 from ...services import PricingService
+from ..importar_slicer import fila_prusaslicer
 
 
 class Phase6Reimpresion(PhaseSection):
@@ -17,6 +18,7 @@ class Phase6Reimpresion(PhaseSection):
         self.field(row, 0, 'F6_Uso_Material_g', "USO DE MATERIAL (g)")
         self.vars['F6_Uso_Material_g'].trace_add('write', self._calculate_price)
         self.field(row, 2, 'F6_Tiempo_Impresion_HHMM', "TIEMPO DE IMPRESIÓN", "HH:MM")
+        fila_prusaslicer(self, 'F6_Uso_Material_g', 'F6_Tiempo_Impresion_HHMM')
 
         row = self.new_row()
         self.field(row, 0, 'F6_Precio', "PRECIO (₡)", "Calculado automáticamente", state='readonly')

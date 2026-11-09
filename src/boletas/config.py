@@ -33,6 +33,17 @@ PRECIO_POR_GRAMO = 50
 # Gramos de material que trae un rollo de filamento (para el orden de impresión).
 GRAMOS_POR_ROLLO = 1000
 
+# --- PrusaSlicer ------------------------------------------------------------
+# Ruta de prusa-slicer-console.exe. Vacío = buscarlo en la instalación habitual.
+PRUSASLICER_RUTA = ""
+# Perfil exportado de PrusaSlicer (.ini) para slicear STL/OBJ. Los proyectos
+# .3mf y los G-code no lo necesitan.
+PRUSASLICER_PERFIL = ""
+# Tiempo máximo que se espera a que PrusaSlicer termine de slicear.
+PRUSASLICER_TIMEOUT_SEGUNDOS = 300
+# Densidad (g/cm³) para estimar los gramos si el perfil no la trae (PLA ≈ 1.24).
+DENSIDAD_FILAMENTO = 1.24
+
 
 # --- Fases del flujo de una boleta ----------------------------------------
 # El orden de esta lista define el avance natural de una boleta. El índice de

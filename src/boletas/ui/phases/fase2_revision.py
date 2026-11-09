@@ -1,7 +1,7 @@
 """Fase 2: Revisión y Preparación.
 
-Registra el material usado y el tiempo; calcula el precio automáticamente a
-partir de los gramos. También indica en qué tipo de impresora se debe imprimir
+Registra el material usado y el tiempo (a mano o leídos de PrusaSlicer);
+calcula el precio automáticamente a partir de los gramos. También indica en qué tipo de impresora se debe imprimir
 (si `config.USAR_TIPO_IMPRESORA` está activo; si no, el campo se oculta pero se
 conserva el valor que ya tuviera la boleta).
 """
@@ -10,6 +10,7 @@ import tkinter as tk
 
 from ... import catalogo, config
 from ...services import PricingService
+from ..importar_slicer import fila_prusaslicer
 from .base import PhaseSection
 
 
@@ -23,6 +24,7 @@ class Phase2Revision(PhaseSection):
         self.field(row, 0, 'Uso_Material_g', "USO DE MATERIAL (g)")
         self.vars['Uso_Material_g'].trace_add('write', self._calculate_price)
         self.duration_field(row, 2, 'Tiempo_Impresion_HHMM', "TIEMPO DE IMPRESIÓN")
+        fila_prusaslicer(self, 'Uso_Material_g', 'Tiempo_Impresion_HHMM')
 
         row = self.new_row()
         self.field(row, 0, 'Precio', "PRECIO (₡)", "Calculado automáticamente", state='readonly')
