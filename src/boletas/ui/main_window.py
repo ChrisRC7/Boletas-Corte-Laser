@@ -78,6 +78,9 @@ class App(ctk.CTk):
         ctk.CTkButton(banner, text="✚  Añadir", width=110, font=theme.font(13, "bold"),
                       fg_color=theme.SUCCESS, hover_color=theme.darken(theme.SUCCESS),
                       command=self.open_new_boleta_window).pack(side="right", padx=(6, 20))
+        ctk.CTkButton(banner, text="⧉  Copiar", width=110, font=theme.font(13, "bold"),
+                      fg_color=theme.PHASE_COLORS[0], hover_color=theme.darken(theme.PHASE_COLORS[0]),
+                      command=self.copy_selected_boleta).pack(side="right", padx=6)
         ctk.CTkButton(banner, text="🗑  Borrar", width=110, font=theme.font(13, "bold"),
                       fg_color=theme.DANGER, hover_color=theme.darken(theme.DANGER),
                       command=self.delete_selected_boleta).pack(side="right", padx=6)
@@ -211,6 +214,14 @@ class App(ctk.CTk):
     def open_new_boleta_window(self):
         BoletaForm(self)
 
+    def copy_selected_boleta(self):
+        """Nueva boleta con la Recepción de la seleccionada (usuario con varias impresiones)."""
+        selected_item = self.tree.focus()
+        if not selected_item:
+            messagebox.showwarning("Sin selección", "Seleccione la boleta que desea copiar.")
+            return
+        BoletaForm(self, copiar_de=int(self.tree.item(selected_item, 'values')[0]))
+
     def open_config_window(self):
         ConfigWindow(self, al_guardar=self.show_all_boletas)
 
@@ -246,6 +257,9 @@ class App(ctk.CTk):
     # --- API usada por BoletaForm -----------------------------------------
     def get_next_id(self):
         return self.repo.get_next_id()
+
+    def numero_impresion(self, carne, boleta_id):
+        return self.repo.numero_impresion(carne, boleta_id)
 
     def get_boleta_by_id(self, boleta_id):
         return self.repo.get_by_id(boleta_id)

@@ -65,7 +65,7 @@ class Phase1Recepcion(PhaseSection):
 
         # ARCHIVO | COLOR, y debajo las observaciones del usuario.
         row = self.new_row()
-        self.field(row, 0, 'Nombre_Pieza', "ARCHIVO", "Nombre de la pieza")
+        self.field(row, 0, 'Nombre_Pieza', "ARCHIVO", "Boleta-carné-n.º de impresión")
         self.label(row, 2, "COLOR DEL\nFILAMENTO", "Según el material")
         self.vars['Color_Filamento'] = tk.StringVar()
         self.color_combo = ctk.CTkComboBox(
@@ -269,11 +269,25 @@ class Phase1Recepcion(PhaseSection):
             self.vars['Nombre_Usuario'].set('')
         self._nombre_provisional = None
 
-    def _update_part_name(self, _event=None):
-        boleta_id = self.form.boleta_id if self.form.boleta_id is not None else self.form.parent_app.get_next_id()
+    # --- Nombre del archivo ------------------------------------------------
+    def _nombre_archivo(self, boleta_id):
+        """'<boleta>-<carné>-<n.º de impresión del usuario>', o None sin carné."""
         carne = self.vars['Carné'].get().strip()
         if not carne:
-            return
-        parts = self.vars['Nombre_Pieza'].get().split('-')
-        manual_part = parts[2].strip() if len(parts) == 3 and parts[2].strip() != "" else ""
-        self.vars['Nombre_Pieza'].set(f"{boleta_id}-{carne}-{manual_part}")
+            return None
+        numero = self.form.parent_app.numero_impresion(carne, boleta_id)
+        return f"{boleta_id}-{carne}-{numero}"
+
+    def _update_part_name(self, _event=None):
+        boleta_id = self.form.boleta_id if self.form.boleta_id is not None else self.form.parent_app.get_next_id()
+        nombre = self._nombre_archivo(boleta_id)
+        if nombre:
+            self.vars['Nombre_Pieza'].set(nombre)
+
+    def on_collect(self, form_data):
+        # En una boleta nueva el ID definitivo se asigna al guardar: el nombre
+        # del archivo se recalcula con él (por si se abrieron dos boletas nuevas).
+        if self.form.boleta_id is None and form_data.get('ID Boleta'):
+            nombre = self._nombre_archivo(form_data['ID Boleta'])
+            if nombre:
+                form_data['Nombre_Pieza'] = nombre

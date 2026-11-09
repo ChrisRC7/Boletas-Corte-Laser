@@ -31,7 +31,8 @@ from .phases import build_phases
 class BoletaForm(ctk.CTkToplevel):
     """Ventana para crear o editar una boleta."""
 
-    def __init__(self, parent_app, boleta_id=None):
+    def __init__(self, parent_app, boleta_id=None, copiar_de=None):
+        """`copiar_de`: ID de una boleta cuya Recepción se copia en esta (nueva)."""
         super().__init__(parent_app)
         self.parent_app = parent_app
         self.boleta_id = boleta_id
@@ -41,6 +42,8 @@ class BoletaForm(ctk.CTkToplevel):
 
         if self.boleta_id:
             self.title(f"Editando Boleta #{self.boleta_id}")
+        elif copiar_de:
+            self.title(f"Nueva Boleta (copia de la #{copiar_de})")
         else:
             self.title("Añadir Nueva Boleta de Impresión")
         self.geometry("1020x860")
@@ -56,7 +59,9 @@ class BoletaForm(ctk.CTkToplevel):
         # Cada fase se construye a sí misma como una sección desplegable.
         self.phases = build_phases(self)
         for phase in self.phases:
+            antes = set(self.vars)
             phase.build(self.scroll)
+            phase.keys = set(self.vars) - antes  # Campos propios de la fase.
 
         # En Windows, CTkToplevel a veces se abre detrás de la ventana principal.
         self.after(200, self._bring_to_front)
@@ -66,6 +71,8 @@ class BoletaForm(ctk.CTkToplevel):
         else:
             self.set_datetime('F1_Fecha', 'F1_Hora')
             self.set_current_phase(0)
+            if copiar_de:
+                self.copiar_recepcion(copiar_de)
 
     # --- Construcción de la ventana ---------------------------------------
     def _build_banner(self):
@@ -279,7 +286,18 @@ class BoletaForm(ctk.CTkToplevel):
             self.destroy()
             return
 
-        for key, var in self.vars.items():
+        self._cargar_valores(boleta_data, self.vars)
+
+        # Carga específica de cada fase (fallos, motivo de cancelación, etc.).
+        for phase in self.phases:
+            phase.on_populate(boleta_data)
+
+        self.set_current_phase(self._fase_al_abrir(boleta_data))
+
+    def _cargar_valores(self, boleta_data, keys):
+        """Pone en las variables `keys` los valores de una boleta guardada."""
+        for key in keys:
+            var = self.vars[key]
             value = boleta_data.get(key, '')
             if pd.isna(value):
                 value = ''
@@ -288,11 +306,19 @@ class BoletaForm(ctk.CTkToplevel):
             else:
                 var.set(str(value))
 
-        # Carga específica de cada fase (fallos, motivo de cancelación, etc.).
-        for phase in self.phases:
-            phase.on_populate(boleta_data)
+    def copiar_recepcion(self, boleta_id):
+        """Copia toda la Recepción de otra boleta (para usuarios con varias impresiones).
 
-        self.set_current_phase(self._fase_al_abrir(boleta_data))
+        La fecha y hora quedan las de ahora y el nombre del archivo se
+        recalcula con el número de boleta y de impresión siguientes.
+        """
+        boleta_data = self.parent_app.get_boleta_by_id(boleta_id)
+        if boleta_data is None:
+            return
+        recepcion = self.phases[0]
+        self._cargar_valores(boleta_data, recepcion.keys - {'F1_Fecha', 'F1_Hora'})
+        recepcion.on_populate(boleta_data)
+        recepcion._update_part_name()
 
     def guardar_cambios(self):
         # Validar todas las fases que ya tienen operador asignado.
@@ -304,6 +330,8 @@ class BoletaForm(ctk.CTkToplevel):
                     return
 
         form_data = {key: var.get() for key, var in self.vars.items()}
+        if not self.boleta_id:
+            form_data['ID Boleta'] = self.parent_app.get_next_id()
 
         # Datos específicos de cada fase (p. ej. la lista de fallos en JSON).
         for phase in self.phases:
@@ -313,7 +341,6 @@ class BoletaForm(ctk.CTkToplevel):
             self.parent_app.update_record(self.boleta_id, form_data)
             messagebox.showinfo("Éxito", f"Boleta #{self.boleta_id} actualizada correctamente.", parent=self)
         else:
-            form_data['ID Boleta'] = self.parent_app.get_next_id()
             if not form_data.get('Fase Actual'):
                 form_data['Fase Actual'] = config.FASES[0]
             self.parent_app.add_new_record(form_data)

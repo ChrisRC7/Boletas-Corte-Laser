@@ -97,6 +97,18 @@ class BoletaRepository:
 
         return filtered
 
+    def numero_impresion(self, carne, boleta_id):
+        """Número de impresión del usuario para una boleta: 1 si es su primera.
+
+        Cuenta las boletas del mismo carné con un ID menor que `boleta_id`.
+        """
+        carne = str(carne).strip()
+        if self.df.empty or not carne:
+            return 1
+        mismo_usuario = self.df['Carné'].astype(str).str.strip() == carne
+        anteriores = self.df['ID Boleta'] < int(boleta_id)
+        return int((mismo_usuario & anteriores).sum()) + 1
+
     def registros(self):
         """Todas las boletas como lista de diccionarios (valores vacíos -> '')."""
         return self.df.fillna('').to_dict('records')

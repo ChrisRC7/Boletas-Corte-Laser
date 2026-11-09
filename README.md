@@ -34,6 +34,11 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
     pasan a su campo, se autocompleta todo y el nombre se sustituye por el real.
   - Si se cambia el carné o la cuenta por los de **otra persona**, sus datos
     reemplazan a los anteriores (no hace falta borrar los campos a mano).
+- **Nombre del archivo** automático: `boleta-carné-n.º de impresión del usuario`
+  (1 si es su primera boleta, 2 la segunda...).
+- **⧉ Copiar**: crea una boleta nueva con toda la Recepción de la boleta
+  seleccionada (para usuarios que traen varias impresiones), con el siguiente
+  número de boleta, el siguiente número de impresión y la fecha/hora actual.
 - **Color del filamento** en la Recepción: lista con los colores disponibles del
   material elegido (se pueden marcar como agotados en la Configuración).
 - **Tipo de impresora** (MK4S, Core One Plus o Cualquiera) en la Revisión; la
