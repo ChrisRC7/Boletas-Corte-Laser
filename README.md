@@ -48,8 +48,11 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   rellenos, usos/prioridades, impresoras y tipos **sin recompilar**. Se guarda
   en `configuracion.json` (junto al Excel); "Restaurar valores por defecto"
   vuelve a lo de `config.py`.
-- **Desde PrusaSlicer…** (Revisión y Reimpresión): llena los gramos y el tiempo
-  de impresión leyendo el G-code exportado (`.gcode` o `.bgcode`), o sliceando
+- **Desde PrusaSlicer…**: en la Recepción llena material, resolución y relleno;
+  en la Revisión, eso más los gramos y el tiempo; en la Reimpresión, gramos y
+  tiempo. La capa y el relleno se marcan en la opción más cercana y un
+  filamento que no está en la lista va a «Otro»; si cambia algo ya lleno, lo
+  avisa. Lee el G-code exportado (`.gcode` o `.bgcode`), o sliceando
   un proyecto `.3mf` (o un `.stl` si hay un perfil `.ini` en la Configuración)
   con `prusa-slicer-console.exe`. Si el perfil no tiene densidad de filamento
   los gramos se estiman con el volumen × densidad (`DENSIDAD_FILAMENTO`).
@@ -135,7 +138,7 @@ Boletas Corte Laser/
     │       ├── config_window.py # Ventana de Configuración
     │       ├── plan_window.py # Ventana del orden de impresión
     │       ├── tabla_editable.py # Tabla de filas editable (usada en la Configuración)
-    │       ├── importar_slicer.py # Botón «Desde PrusaSlicer…» de las fases con material
+    │       ├── importar_slicer.py # Botón «Desde PrusaSlicer…» (Recepción, Revisión, Reimpresión)
     │       └── phases/        # Una fase por archivo (cada sección es independiente)
     │           ├── __init__.py            # Registro de fases (PHASE_CLASSES)
     │           ├── base.py                # PhaseSection: clase base de una fase

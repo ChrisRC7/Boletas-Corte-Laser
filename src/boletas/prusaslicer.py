@@ -1,6 +1,9 @@
 """Integración con PrusaSlicer: gramos de material y tiempo de impresión.
 
-No tiene interfaz. Ofrece una sola entrada, `leer_trabajo(ruta)`, que acepta:
+No tiene interfaz. Ofrece una sola entrada, `leer_trabajo(ruta)`, que devuelve
+los gramos, el tiempo y los parámetros del trabajo (tipo de filamento, altura
+de capa y relleno) tal como los escribe PrusaSlicer. Convertirlos a las
+opciones de la boleta es cosa de `catalogo.py`. Acepta:
 
 - **G-code exportado por PrusaSlicer** (`.gcode` de texto o `.bgcode` binario,
   el de las MK4/Core One): se leen los datos que PrusaSlicer escribe al final
@@ -45,7 +48,11 @@ CLAVE_TIEMPO = 'estimated printing time (normal mode)'
 CLAVES_GRAMOS = ('total filament used [g]', 'filament used [g]')
 CLAVE_VOLUMEN = 'filament used [cm3]'
 CLAVE_DENSIDAD = 'filament_density'
-_CLAVES = (CLAVE_TIEMPO, CLAVE_VOLUMEN, CLAVE_DENSIDAD) + CLAVES_GRAMOS
+CLAVE_FILAMENTO = 'filament_type'
+CLAVE_CAPA = 'layer_height'
+CLAVE_RELLENO = 'fill_density'
+_CLAVES = (CLAVE_TIEMPO, CLAVE_VOLUMEN, CLAVE_DENSIDAD,
+           CLAVE_FILAMENTO, CLAVE_CAPA, CLAVE_RELLENO) + CLAVES_GRAMOS
 
 # Bytes del final de un G-code de texto donde suelen estar los datos.
 _BYTES_FINALES = 512 * 1024
@@ -61,6 +68,9 @@ class ResultadoSlicer:
     minutos: int
     gramos_estimados: bool = False   # True si salieron de volumen × densidad
     archivo: str = ''
+    filamento: str = ''              # 'PLA', 'PETG', 'FLEX'... ('' si no viene)
+    capa: float = None               # altura de capa en mm
+    relleno: float = None            # relleno en %
 
     @property
     def tiempo_hhmm(self):
@@ -233,7 +243,10 @@ def _resultado(metadatos, ruta):
         gramos = volumen * _densidad(metadatos.get(CLAVE_DENSIDAD, ''))
         estimados = True
     return ResultadoSlicer(gramos=round(gramos, 2), minutos=minutos,
-                           gramos_estimados=estimados, archivo=ruta)
+                           gramos_estimados=estimados, archivo=ruta,
+                           filamento=_primero(metadatos.get(CLAVE_FILAMENTO, '')),
+                           capa=_primer_numero(metadatos.get(CLAVE_CAPA, '')),
+                           relleno=_primer_numero(metadatos.get(CLAVE_RELLENO, '')))
 
 
 def minutos_desde_duracion(texto):
@@ -250,6 +263,16 @@ def _numeros(texto):
 def _suma(texto):
     """'12.5, 3.1' (varios extrusores) -> 15.6."""
     return sum(_numeros(texto))
+
+
+def _primero(texto):
+    """'PLA;PETG' (varios extrusores) -> 'PLA'."""
+    return re.split(r'[;,]', str(texto))[0].strip().strip('"')
+
+
+def _primer_numero(texto):
+    numeros = _numeros(texto)
+    return numeros[0] if numeros else None
 
 
 def _densidad(texto):

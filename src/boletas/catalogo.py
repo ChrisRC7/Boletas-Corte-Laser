@@ -1,4 +1,4 @@
-"""Consultas sobre las opciones configurables (usos, colores, impresoras).
+"""Consultas sobre las opciones configurables (usos, colores, impresoras, slicer).
 
 `config.py` guarda los datos tal cual (listas de diccionarios, editables desde
 la ventana de Configuración). Este módulo responde las preguntas que hace el
@@ -6,6 +6,8 @@ resto del programa sobre esos datos, para que la UI y los servicios no tengan
 que conocer su forma interna. Siempre lee `config` en el momento de la llamada,
 así los cambios hechos desde la Configuración se ven sin reiniciar.
 """
+
+import re
 
 from . import config
 
@@ -43,6 +45,36 @@ def colores_disponibles(material):
 def material_tiene_colores(material):
     """True si el material tiene colores configurados (aunque estén agotados)."""
     return bool(config.COLORES_POR_MATERIAL.get(material))
+
+
+# --- Parámetros que vienen de PrusaSlicer ------------------------------------
+def material_desde_slicer(tipo):
+    """Opción de material para el `filament_type` de PrusaSlicer: (material, detalle).
+
+    'PLA' -> ('PLA', ''); 'FLEX' -> ('Flex (TPU)', '') porque coincide con una
+    palabra de la opción; un tipo que no está en la lista -> ('Otro', 'PC').
+    ('', '') si no hay tipo o no se puede representar.
+    """
+    tipo = str(tipo or '').strip()
+    if not tipo:
+        return '', ''
+    buscado = tipo.upper()
+    for opcion in config.MATERIAL_OPTIONS:
+        if opcion == config.MATERIAL_OTRO:
+            continue
+        palabras = [p for p in re.split(r'[\s()/,+-]+', opcion.upper()) if p]
+        if opcion.upper() == buscado or buscado in palabras:
+            return opcion, ''
+    if config.MATERIAL_OTRO in config.MATERIAL_OPTIONS:
+        return config.MATERIAL_OTRO, tipo
+    return '', ''
+
+
+def opcion_cercana(opciones, valor):
+    """La opción (como texto, igual que en los botones) más cercana a `valor`; '' si no hay."""
+    if valor is None or not opciones:
+        return ''
+    return str(min(opciones, key=lambda opcion: abs(float(opcion) - float(valor))))
 
 
 # --- Impresoras -------------------------------------------------------------

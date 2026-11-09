@@ -9,6 +9,8 @@ Registra los datos del usuario y de la pieza. Tiene lógica propia:
 - Autocompleta el nombre de la pieza con el carné.
 - Habilita campos de detalle según el "Uso" y el "Material" seleccionados.
 - Ofrece los colores disponibles del material elegido (`config.COLORES_POR_MATERIAL`).
+- Material, resolución y relleno se pueden tomar de PrusaSlicer (botón
+  «Desde PrusaSlicer…», ver `ui/importar_slicer.py`).
 """
 
 import tkinter as tk
@@ -18,6 +20,7 @@ import customtkinter as ctk
 from ... import catalogo, config
 from ...directorio_ad import es_carne, es_correo, es_cuenta, normalizar_cuenta
 from .. import theme
+from ..importar_slicer import fila_prusaslicer
 from .base import PhaseSection, PAD_X, PAD_Y
 
 
@@ -101,6 +104,8 @@ class Phase1Recepcion(PhaseSection):
         self.radio_group(self.cell(row, 3), 'Relleno', config.RELLENO_OPTIONS,
                          per_row=7, default=config.RELLENO_DEFAULT, item_width=50)
 
+        fila_prusaslicer(self, parametros=True)
+
         row = self.new_row()
         self.field(row, 0, 'Autoriza_Recoger', "AUTORIZA A RECOGER", "Nombre y # identificación", colspan=3)
 
@@ -116,6 +121,11 @@ class Phase1Recepcion(PhaseSection):
         self._buscado = {llave: self.vars[llave].get().strip() for llave in ('Carné', 'Cuenta')}
         self._autollenados = {c: self.vars[c].get().strip() for c in config.CAMPOS_DATOS_USUARIO
                               if self.vars[c].get().strip()}
+
+    def on_valores_externos(self, claves):
+        # El material llegó desde PrusaSlicer: igual que si se hubiera elegido a mano.
+        if 'Material' in claves:
+            self._on_material_selected()
 
     # --- Callbacks propios de la fase -------------------------------------
     def _on_uso_selected(self):

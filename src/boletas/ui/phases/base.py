@@ -16,6 +16,8 @@ Contrato que puede implementar cada fase:
     build_widgets(f)   -> construye los widgets dentro del frame `f` (obligatorio)
     on_populate(data)  -> carga datos específicos al editar una boleta (opcional)
     on_collect(out)    -> añade datos específicos al diccionario a guardar (opcional)
+    on_valores_externos(claves) -> reacciona a variables llenadas desde fuera,
+                          p. ej. desde PrusaSlicer (opcional)
 
 El título y el color de la barra salen de config.FASES y theme.PHASE_COLORS.
 """
@@ -148,6 +150,9 @@ class PhaseSection:
 
     def on_collect(self, form_data):
         """Añade datos específicos de la fase al diccionario que se guardará."""
+
+    def on_valores_externos(self, claves):
+        """Se llama tras llenar `vars[clave]` desde fuera (p. ej. PrusaSlicer) para refrescar la fase."""
 
     # --- Filas de la cuadrícula -------------------------------------------
     def new_row(self):

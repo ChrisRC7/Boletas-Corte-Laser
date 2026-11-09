@@ -109,7 +109,14 @@ desde el campo Nombre y reemplazo de datos al cambiar de persona.
 ## PrusaSlicer (implementado)
 
 - Módulo `src/boletas/prusaslicer.py` (sin UI) y botón en
-  `ui/importar_slicer.py`, usado en la Revisión y la Reimpresión.
+  `ui/importar_slicer.py`. Recepción: material (`filament_type`), resolución
+  (`layer_height`) y relleno (`fill_density`). Revisión: eso + gramos y tiempo.
+  Reimpresión: gramos y tiempo.
+- La conversión a opciones de la boleta está en `catalogo.material_desde_slicer`
+  (FLEX → «Flex (TPU)» por coincidir con una palabra; desconocido → «Otro» con
+  el tipo en el detalle) y `catalogo.opcion_cercana` (capa 0.3 → 0.28).
+- Tras llenar valores se llama `PhaseSection.on_valores_externos(claves)` en
+  cada fase; la Recepción lo usa para refrescar colores y el campo «Otro».
 - G-code de texto: busca `; estimated printing time (normal mode) = …` y
   `; total filament used [g] = …` al final del archivo. `.bgcode` (MK4/Core
   One): lee los bloques de metadatos `clave=valor` (sin comprimir o deflate).
