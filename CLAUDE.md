@@ -12,7 +12,7 @@ también [Context.md](Context.md). La documentación de usuario está en
 1. **Código modular.** Todo cambio debe mantener (o mejorar) la separación por
    capas y la regla "una responsabilidad por archivo":
    - Constantes del dominio → `src/boletas/config.py`.
-   - Acceso a datos → `src/boletas/repository.py` (la UI nunca toca pandas/Excel
+   - Acceso a datos → `src/boletas/repository.py` (la UI nunca toca SQLite
      directamente).
    - Lógica de negocio sin interfaz → `src/boletas/services.py` (o un módulo
      nuevo dentro de `src/boletas/` si crece).
@@ -48,13 +48,14 @@ también [Context.md](Context.md). La documentación de usuario está en
 
 App de escritorio en **Python + CustomTkinter** para gestionar las boletas de
 impresión 3D / corte láser del LAIMI. Cada boleta avanza por 6 fases y se
-guarda en `control_impresiones.xlsx` (pandas + openpyxl).
+guarda en la base de datos SQLite `control_impresiones.db`. El reporte en
+Excel se genera con openpyxl.
 
 ## Comandos
 
 ```bash
-pip install -r requirements.txt          # dependencias (customtkinter, pandas, openpyxl)
-cd src && python main.py                 # ejecutar (el Excel se crea en el cwd)
+pip install -r requirements.txt          # dependencias (customtkinter, openpyxl)
+cd src && python main.py                 # ejecutar (la base de datos se crea en el cwd)
 
 # Empaquetar (.exe en src/dist/). Siempre con --collect-data customtkinter;
 # no compilar con un main.spec viejo que no lo incluya.
@@ -73,7 +74,10 @@ src/boletas/ajustes.py      → configuracion.json: opciones editables desde la 
 src/boletas/catalogo.py     → consultas sobre opciones (usos/prioridad, colores, impresoras, obligatorios)
 src/boletas/fechas.py       → normaliza y lee fechas/horas escritas a mano (sin UI)
 src/boletas/planificador.py → orden óptimo de impresión del día (sin UI)
-src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre el Excel; cada cambio se guarda al momento)
+src/boletas/repository.py   → BoletaRepository (CRUD/búsqueda/filtro sobre SQLite; cada cambio se guarda al momento; devuelve diccionarios)
+src/boletas/excel_antiguo.py → lee el Excel de versiones anteriores para importarlo una vez (sin UI)
+src/boletas/metricas.py     → totales y desgloses de las boletas para el reporte (sin UI)
+src/boletas/reporte.py      → reporte en Excel con resumen, gráficos y detalle (openpyxl, sin UI)
 src/boletas/services.py     → PricingService, PhaseDetector, UsuarioService (historial → AD)
 src/boletas/directorio_ad.py → DirectorioAD: consultas al AD (solo lectura, vía PowerShell)
 src/boletas/prusaslicer.py  → gramos y tiempo desde G-code/.bgcode/3MF de PrusaSlicer (sin UI)
@@ -114,9 +118,9 @@ de datos no importa nada de la UI.
   usarlos, nunca como valor por defecto de un parámetro ni con
   `from config import X`. Para preguntas derivadas usa `catalogo.py`.
 - Los nombres de fase (`config.FASES`) se guardan tal cual en la columna
-  `Fase Actual` del Excel: renombrar una fase implica migrar los datos
+  `Fase Actual` de la base de datos: renombrar una fase implica migrar los datos
   existentes.
-- Errores de guardado: el repositorio lanza la excepción, la UI la traduce a un
-  `messagebox`.
+- Errores de datos: el repositorio lanza `ErrorDatos` (mensaje legible), la UI
+  lo muestra en un `messagebox`.
 - Al cambiar estructura o comportamiento, actualizar `README.md` y
   `Context.md` si corresponde.

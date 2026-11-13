@@ -36,6 +36,11 @@ class Phase1Recepcion(PhaseSection):
         # Lo que se escribió en NOMBRE DEL USUARIO si era un correo o un carné:
         # mientras siga ahí, el autocompletado lo puede reemplazar por el nombre.
         self._nombre_provisional = None
+        # Carné con el que se generó el nombre del archivo y el nombre generado:
+        # solo se vuelve a generar si cambia el carné, y al guardar una boleta
+        # nueva solo se recalcula si el operador no lo cambió a mano.
+        self._carne_del_nombre = None
+        self._nombre_generado = None
 
         self.operator_row()
 
@@ -94,6 +99,10 @@ class Phase1Recepcion(PhaseSection):
             font=theme.font(12), dropdown_font=theme.font(12),
         )
         self.color_combo.grid(row=row, column=1, sticky="w", padx=(0, PAD_X), pady=PAD_Y)
+        # Aviso cuando el material elegido no tiene ningún color disponible.
+        self.color_aviso = ctk.CTkLabel(frame, text="", font=theme.font(11), text_color=theme.ACCENT_RED,
+                                        anchor="w", justify="left", wraplength=380)
+        self.color_aviso.grid(row=row, column=2, columnspan=2, sticky="w", padx=(0, PAD_X), pady=PAD_Y)
 
         # RESOLUCIÓN | RELLENO lado a lado, como en la boleta.
         row = self.new_row()
@@ -121,6 +130,9 @@ class Phase1Recepcion(PhaseSection):
         self._buscado = {llave: self.vars[llave].get().strip() for llave in ('Carné', 'Cuenta')}
         self._autollenados = {c: self.vars[c].get().strip() for c in config.CAMPOS_DATOS_USUARIO
                               if self.vars[c].get().strip()}
+        # El nombre del archivo guardado se respeta mientras no cambie el carné.
+        self._carne_del_nombre = self.vars['Carné'].get().strip()
+        self._nombre_generado = None
 
     def on_valores_externos(self, claves):
         # El material llegó desde PrusaSlicer: igual que si se hubiera elegido a mano.
@@ -146,6 +158,7 @@ class Phase1Recepcion(PhaseSection):
         """
         material = self.vars['Material'].get()
         color = self.vars['Color_Filamento']
+        self.color_aviso.configure(text="")
         if not material:
             self.color_combo.configure(values=[], state='disabled')
             return
@@ -156,6 +169,11 @@ class Phase1Recepcion(PhaseSection):
         self.color_combo.configure(values=colores, state='readonly')
         if limpiar and color.get() not in colores:
             color.set(colores[0] if len(colores) == 1 else '')
+        if not colores:
+            # Sin este aviso la lista queda vacía y no se entiende por qué no se puede avanzar.
+            self.color_aviso.configure(
+                text=f"No hay colores disponibles de {material}. Elija otro material o "
+                     "marque un color como disponible en ⚙ Configuración > Colores.")
 
     def _set_enabled(self, entry, key, enabled):
         if enabled:
@@ -288,16 +306,29 @@ class Phase1Recepcion(PhaseSection):
         numero = self.form.parent_app.numero_impresion(carne, boleta_id)
         return f"{boleta_id}-{carne}-{numero}"
 
-    def _update_part_name(self, _event=None):
+    def _update_part_name(self, _event=None, forzar=False):
+        """Genera el nombre del archivo cuando cambia el carné (o está vacío).
+
+        Si el carné es el mismo con el que ya se generó (o el de la boleta
+        guardada), no se toca: así no se pierde un nombre escrito a mano solo
+        por pasar por el campo CARNÉ. `forzar` lo regenera siempre.
+        """
+        carne = self.vars['Carné'].get().strip()
+        if not forzar and carne == self._carne_del_nombre and self.vars['Nombre_Pieza'].get().strip():
+            return
         boleta_id = self.form.boleta_id if self.form.boleta_id is not None else self.form.parent_app.get_next_id()
         nombre = self._nombre_archivo(boleta_id)
         if nombre:
             self.vars['Nombre_Pieza'].set(nombre)
+            self._carne_del_nombre = carne
+            self._nombre_generado = nombre
 
     def on_collect(self, form_data):
         # En una boleta nueva el ID definitivo se asigna al guardar: el nombre
         # del archivo se recalcula con él (por si se abrieron dos boletas nuevas).
-        if self.form.boleta_id is None and form_data.get('ID Boleta'):
+        # Un nombre escrito a mano por el operador se respeta.
+        generado = self.vars['Nombre_Pieza'].get().strip() == (self._nombre_generado or '')
+        if self.form.boleta_id is None and form_data.get('ID Boleta') and generado:
             nombre = self._nombre_archivo(form_data['ID Boleta'])
             if nombre:
                 form_data['Nombre_Pieza'] = nombre

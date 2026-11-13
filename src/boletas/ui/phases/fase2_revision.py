@@ -39,7 +39,7 @@ class Phase2Revision(PhaseSection):
             self.vars['Tipo_Impresora'] = tk.StringVar()
 
     def problemas(self):
-        # Valores viejos del Excel no pasan por la restricción de teclado.
+        # Valores viejos ya guardados no pasan por la restricción de teclado.
         gramos = self.vars['Uso_Material_g'].get().strip()
         if gramos and PricingService.gramos(gramos) is None:
             return [f"{config.FIELD_NAMES['Uso_Material_g']} no es un número válido («{gramos}»)."]

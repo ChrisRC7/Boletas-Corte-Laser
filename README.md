@@ -3,10 +3,20 @@
 Aplicación de escritorio (CustomTkinter) para gestionar las **boletas de impresión 3D
 / corte láser** del LAIMI. Permite registrar cada solicitud y seguirla a lo
 largo de sus **6 fases**, desde la recepción hasta la entrega (o cancelación).
-Los datos se guardan en un archivo Excel (`control_impresiones.xlsx`) **en el
-momento** en que se crea, edita o borra una boleta. Si el Excel está abierto en
-Office, la app avisa y el cambio no se aplica (el formulario queda abierto para
-reintentar).
+Los datos se guardan en una base de datos **SQLite** (`control_impresiones.db`)
+**en el momento** en que se crea, edita o borra una boleta. Cada cambio toca
+solo la fila de esa boleta, así que varias PCs pueden usar la misma base de
+datos (en una carpeta compartida) sin pisarse los cambios. Si no se puede
+guardar, la app avisa y el formulario queda abierto para reintentar.
+
+Si en la carpeta hay un `control_impresiones.xlsx` de versiones anteriores y
+todavía no existe la base de datos, sus boletas **se importan solas** la primera
+vez; el Excel no se modifica y queda como respaldo.
+
+El botón **📊 Exportar reporte** genera un Excel con el resumen del servicio
+(indicadores y gráficos), las estadísticas por fase, uso, material, mes,
+impresora, carrera y operador, el detalle completo de las boletas, los usuarios
+y los fallos de impresión.
 
 El formulario de cada boleta imita la **boleta impresa**: todas las fases están
 en una sola vista, una debajo de otra, cada una con su barra de color que se
@@ -49,7 +59,7 @@ en una sola vista, una debajo de otra, cada una con su barra de color que se
   Se puede desactivar desde la Configuración.
 - **⚙ Configuración**: edita precio, materiales, colores, resoluciones,
   rellenos, usos/prioridades, impresoras y tipos **sin recompilar**. Se guarda
-  en `configuracion.json` (junto al Excel); "Restaurar valores por defecto"
+  en `configuracion.json` (junto a la base de datos); "Restaurar valores por defecto"
   vuelve a lo de `config.py`.
 - **Correos por Outlook**: en la Impresión, «✉ Solicitar autorización» (costo
   de la pieza; marca la confirmación por «Correo Institucional») y «✉ Correo de
@@ -137,7 +147,10 @@ Boletas Corte Laser/
     │   ├── catalogo.py        # Consultas sobre las opciones (usos, colores, impresoras)
     │   ├── fechas.py          # Normaliza y lee fechas/horas escritas a mano
     │   ├── planificador.py    # Orden óptimo de impresión del día
-    │   ├── repository.py      # Acceso a datos (Excel)        [patrón Repository]
+    │   ├── repository.py      # Acceso a datos (SQLite)       [patrón Repository]
+    │   ├── excel_antiguo.py   # Lee el Excel de versiones anteriores para importarlo (una vez)
+    │   ├── metricas.py        # Métricas del servicio (totales y desgloses) para el reporte
+    │   ├── reporte.py         # Reporte en Excel: resumen, gráficos y detalle
     │   ├── services.py        # Lógica de negocio (precio, fase, autocompletado de usuarios)
     │   ├── directorio_ad.py   # Consultas al Active Directory (solo lectura)
     │   ├── prusaslicer.py     # Gramos y tiempo desde G-code/3MF de PrusaSlicer
@@ -186,14 +199,15 @@ repositorio, pero la lógica de datos no sabe nada de la interfaz.
                         │ usa
         ┌───────────────┴──────────────┐
         │      Repository (datos)       │  repository.py
-        │  lee/escribe el Excel         │
+        │  lee/escribe la base SQLite   │
         └──────────────────────────────┘
 ```
 
 | Capa / módulo        | Responsabilidad                                                                 | Patrón |
 |----------------------|---------------------------------------------------------------------------------|--------|
 | `config.py`          | Único lugar con las constantes del dominio (fases, columnas, opciones, precio). | Configuración centralizada |
-| `repository.py`      | Toda la lectura/escritura del Excel y las consultas (CRUD, búsqueda, filtros).  | **Repository** |
+| `repository.py`      | Toda la lectura/escritura de la base SQLite y las consultas (CRUD, búsqueda, filtros). | **Repository** |
+| `metricas.py` · `reporte.py` | Calculan las métricas de las boletas y las escriben en el reporte de Excel (con gráficos). | Servicios |
 | `services.py`        | Cálculos reutilizables sin interfaz: precio, detección de la fase actual y autocompletado de usuarios (historial → AD). | Servicios |
 | `directorio_ad.py`   | Búsquedas de estudiantes en el Active Directory (solo lectura).                  | Adaptador |
 | `prusaslicer.py`     | Lee gramos y tiempo del G-code de PrusaSlicer (texto o binario) o slicea un 3MF/STL con su consola. | Adaptador |
@@ -232,8 +246,8 @@ No se toca el código de las otras fases ni el de `boleta_form.py`.
 **Ventajas de esta organización**
 
 - Para cambiar una fase, una opción o el precio basta con editar `config.py`.
-- Si algún día se quiere pasar de Excel a una base de datos, solo se reescribe
-  `repository.py`; la interfaz no cambia.
+- El almacenamiento está aislado en `repository.py`: pasar de Excel a SQLite
+  solo requirió reescribir ese archivo; cambiar a otra base de datos sería igual.
 - La lógica de negocio (`services.py`) puede probarse sin abrir ninguna ventana.
 
 ---
@@ -249,8 +263,9 @@ cd src
 python main.py
 ```
 
-El archivo `control_impresiones.xlsx` se busca/crea en el directorio desde el
-que se ejecuta la aplicación.
+La base de datos `control_impresiones.db` se busca/crea en el directorio desde
+el que se ejecuta la aplicación (la ruta se puede cambiar en ⚙ Configuración,
+p. ej. a una carpeta compartida entre varias PCs).
 
 ---
 
@@ -292,7 +307,7 @@ necesita en tiempo de ejecución; sin esa opción el `.exe` no abre.
 ## 🛠️ Dependencias
 
 - Python 3
-- [pandas](https://pandas.pydata.org/) — manejo de datos
-- [openpyxl](https://openpyxl.readthedocs.io/) — lectura/escritura de Excel
+- [sqlite3](https://docs.python.org/3/library/sqlite3.html) — base de datos (viene con Python)
+- [openpyxl](https://openpyxl.readthedocs.io/) — reporte en Excel e importación del Excel anterior
 - [CustomTkinter](https://customtkinter.tomschimansky.com/) — interfaz gráfica
   moderna sobre [tkinter](https://docs.python.org/3/library/tkinter.html)

@@ -32,7 +32,7 @@ def prioridad_uso(nombre):
 
 
 def mapa_prioridades():
-    """Diccionario uso -> prioridad (para ordenar con pandas)."""
+    """Diccionario uso -> prioridad."""
     return {uso["nombre"]: uso["prioridad"] for uso in config.USOS}
 
 
@@ -89,6 +89,11 @@ def tipo_de_impresora(numero):
         if str(impresora["numero"]) == str(numero).strip():
             return impresora.get("tipo", "")
     return ""
+
+
+def existe_impresora(numero):
+    """True si la impresora con ese número sigue en la Configuración (activa o no)."""
+    return any(str(i["numero"]) == str(numero).strip() for i in config.IMPRESORAS)
 
 
 def opciones_tipo_impresora():

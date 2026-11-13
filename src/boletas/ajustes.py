@@ -6,7 +6,7 @@ valores en un JSON y, al arrancar, `cargar()` los aplica encima de los valores
 por defecto de `config.py`. El resto del programa sigue leyendo `config.X`
 como siempre.
 
-El archivo se guarda en el mismo directorio de trabajo que el Excel. Si no
+El archivo se guarda en el directorio de trabajo de la aplicación. Si no
 existe, o tiene un valor inválido, se usan los valores por defecto.
 """
 
@@ -20,7 +20,7 @@ ARCHIVO_AJUSTES = "configuracion.json"
 
 # Atributos de `config` que se pueden editar desde la interfaz.
 EDITABLES = [
-    'EXCEL_FILE', 'AD_DOMINIO_CORREO', 'AD_TIMEOUT_SEGUNDOS',
+    'DB_FILE', 'EXCEL_FILE', 'AD_DOMINIO_CORREO', 'AD_TIMEOUT_SEGUNDOS',
     'PRECIO_POR_GRAMO', 'GRAMOS_POR_ROLLO',
     'PRUSASLICER_RUTA', 'PRUSASLICER_PERFIL', 'PRUSASLICER_TIMEOUT_SEGUNDOS', 'DENSIDAD_FILAMENTO',
     'USOS', 'PRIORIDAD_POR_DEFECTO',
@@ -123,8 +123,8 @@ def validar(valores):
             (repetidos if elemento in vistos else vistos).add(elemento)
         return repetidos
 
-    if not str(valores.get('EXCEL_FILE', '')).strip():
-        errores.append("Falta el archivo de datos (Excel).")
+    if not str(valores.get('DB_FILE', '')).strip():
+        errores.append("Falta el archivo de la base de datos.")
     if valores.get('PRECIO_POR_GRAMO', 0) < 0:
         errores.append("El precio por gramo no puede ser negativo.")
     for nombre, texto in (('GRAMOS_POR_ROLLO', "Los gramos por rollo"),

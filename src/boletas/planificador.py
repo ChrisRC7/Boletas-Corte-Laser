@@ -101,7 +101,7 @@ def minutos_desde_texto(texto):
         horas = float(texto.replace(",", "."))
     except ValueError:
         return None
-    return round(horas * 60) if horas >= 0 else None
+    return round(horas * 60) if math.isfinite(horas) and horas >= 0 else None
 
 
 def gramos_desde_texto(texto):

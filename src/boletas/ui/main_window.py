@@ -2,19 +2,22 @@
 
 Esta clase es el "controlador" de la interfaz: reacciona a los botones y delega
 el acceso a datos en `BoletaRepository` y la edición en `BoletaForm`. No conoce
-detalles de pandas ni del Excel. También abre la Configuración y el Orden de
-impresión del día.
+detalles de la base de datos. También abre la Configuración, el Orden de
+impresión del día y exporta el reporte en Excel.
 """
 
+import os
+import sys
 import tkinter as tk
-from tkinter import ttk, messagebox
+from datetime import datetime
+from tkinter import filedialog, ttk, messagebox
 
 import customtkinter as ctk
 
-from .. import ajustes, config
+from .. import ajustes, config, reporte
 from ..directorio_ad import DirectorioAD
 from ..planificador import PlanificadorService
-from ..repository import BoletaRepository
+from ..repository import BoletaRepository, ErrorDatos
 from ..services import UsuarioService
 from . import theme
 from .boleta_form import BoletaForm
@@ -38,7 +41,15 @@ class App(ctk.CTk):
         error_ajustes = ajustes.cargar()
 
         self.repo = BoletaRepository()
-        self.repo.load()
+        try:
+            self.repo.load()
+        except ErrorDatos as error:
+            # Sin datos no se puede trabajar (y no se debe crear una base vacía
+            # encima): se avisa y se cierra, en vez de fallar sin mensaje.
+            self.withdraw()
+            messagebox.showerror("No se pudieron abrir los datos", f"{error}\n\nLa aplicación se cerrará.")
+            self.destroy()
+            raise SystemExit(1) from None
         self.usuarios = UsuarioService(self.repo, DirectorioAD())
 
         self.create_widgets()
@@ -46,19 +57,21 @@ class App(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         if error_ajustes:
             self.after(300, lambda: messagebox.showwarning("Configuración", error_ajustes))
+        if self.repo.importadas is not None:
+            self.after(400, lambda: messagebox.showinfo(
+                "Datos importados",
+                f"Se importaron {self.repo.importadas} boletas de '{self.repo.excel_file}' a la base de "
+                f"datos '{self.repo.db_file}'.\n\nDesde ahora los datos se guardan en la base de datos. "
+                "El Excel ya no se usa: consérvelo como respaldo."))
 
     # --- Ciclo de vida ----------------------------------------------------
     def on_closing(self):
-        # Cada cambio ya se guardó en el Excel en el momento: no hay nada pendiente.
+        # Cada cambio ya se guardó en la base de datos en el momento: no hay nada pendiente.
         self.destroy()
 
     def _avisar_error_guardado(self, error, parent=None):
-        """Traduce un error al escribir el Excel a un mensaje para el usuario."""
-        if isinstance(error, PermissionError):
-            texto = (f"No se pudo guardar el archivo '{self.repo.excel_file}'.\n"
-                     "Asegúrese de que no esté abierto en Excel y vuelva a intentarlo.")
-        else:
-            texto = f"Ocurrió un error al guardar: {error}"
+        """Traduce un error al escribir la base de datos a un mensaje para el usuario."""
+        texto = str(error) if isinstance(error, ErrorDatos) else f"Ocurrió un error al guardar: {error}"
         messagebox.showerror("No se guardó", texto + "\n\nEl cambio no se aplicó.",
                              parent=parent or self)
 
@@ -127,6 +140,9 @@ class App(ctk.CTk):
             )
             button.pack(side="left", padx=2)
             self.filter_buttons[fase] = (button, color)
+        ctk.CTkButton(filter_frame, text="📊  Exportar reporte", width=150, height=30, font=theme.font(12, "bold"),
+                      fg_color=theme.SUCCESS, hover_color=theme.darken(theme.SUCCESS),
+                      command=self.exportar_reporte).pack(side="right")
 
         # Tabla
         self._style_treeview()
@@ -165,9 +181,9 @@ class App(ctk.CTk):
         style.map("Treeview.Heading", background=[("active", theme.darken(theme.PHASE_COLORS[0]))])
         style.map("Treeview", background=[("selected", "#1F3B63")], foreground=[("selected", "white")])
 
-    def refresh_treeview(self, data_df):
+    def refresh_treeview(self, boletas):
         self.tree.delete(*self.tree.get_children())
-        for _, row in data_df.iterrows():
+        for row in boletas:
             values = (
                 row.get('ID Boleta', ''),
                 row.get('Cuenta', ''),
@@ -185,16 +201,24 @@ class App(ctk.CTk):
             messagebox.showwarning("Búsqueda Vacía", "Por favor ingrese un término para buscar.")
             return
         self._set_active_filter(None)
-        self.refresh_treeview(self.repo.search(field, term))
+        self.refresh_treeview(self._consultar(lambda: self.repo.search(field, term)))
 
     def show_all_boletas(self):
         self.search_term.set("")
         self._set_active_filter(self.FILTRO_TODOS)
-        self.refresh_treeview(self.repo.all())
+        self.refresh_treeview(self._consultar(self.repo.all))
 
     def filter_boletas(self, fase):
         self._set_active_filter(fase)
-        self.refresh_treeview(self.repo.filter_by_phase(fase))
+        self.refresh_treeview(self._consultar(lambda: self.repo.filter_by_phase(fase)))
+
+    def _consultar(self, consulta):
+        """Ejecuta una consulta de boletas; si la base de datos falla, avisa y devuelve []."""
+        try:
+            return consulta()
+        except ErrorDatos as error:
+            messagebox.showerror("Base de datos", str(error))
+            return []
 
     def _set_active_filter(self, fase):
         """Resalta el botón del filtro activo (None = ninguno, p. ej. tras una búsqueda)."""
@@ -224,6 +248,36 @@ class App(ctk.CTk):
 
     def open_plan_window(self):
         PlanWindow(self, PlanificadorService(self.repo))
+
+    def exportar_reporte(self):
+        """Genera el reporte en Excel (resumen, gráficos y detalle) donde elija el operador."""
+        ahora = datetime.now()
+        ruta = filedialog.asksaveasfilename(
+            parent=self, title="Guardar reporte", defaultextension=".xlsx",
+            initialfile=f"Reporte_impresiones_{ahora.strftime('%Y-%m-%d')}.xlsx",
+            filetypes=[("Libro de Excel", "*.xlsx")])
+        if not ruta:
+            return
+        try:
+            reporte.generar(self.repo.registros(), ruta, generado=ahora)
+        except ErrorDatos as error:
+            messagebox.showerror("Reporte", str(error))
+            return
+        except PermissionError:
+            messagebox.showerror("Reporte", f"No se pudo escribir '{ruta}'.\n"
+                                            "Si ese archivo está abierto en Excel, ciérrelo y vuelva a intentarlo.")
+            return
+        except OSError as error:
+            messagebox.showerror("Reporte", f"No se pudo guardar el reporte: {error}")
+            return
+        if sys.platform == "win32" and messagebox.askyesno(
+                "Reporte", f"Reporte guardado en:\n{ruta}\n\n¿Abrirlo ahora?"):
+            try:
+                os.startfile(ruta)
+            except OSError as error:
+                messagebox.showerror("Reporte", f"No se pudo abrir el reporte: {error}")
+        elif sys.platform != "win32":
+            messagebox.showinfo("Reporte", f"Reporte guardado en:\n{ruta}")
 
     def on_double_click(self, event):
         item_id = self.tree.focus()
@@ -267,7 +321,7 @@ class App(ctk.CTk):
         return self.repo.get_by_id(boleta_id)
 
     def add_new_record(self, record_dict, parent=None):
-        """Añade y guarda una boleta. Devuelve True si quedó guardada en el Excel."""
+        """Añade y guarda una boleta. Devuelve True si quedó guardada."""
         try:
             self.repo.add(record_dict)
         except Exception as error:
@@ -277,7 +331,7 @@ class App(ctk.CTk):
         return True
 
     def update_record(self, boleta_id, form_data, parent=None):
-        """Actualiza y guarda una boleta. Devuelve True si quedó guardada en el Excel."""
+        """Actualiza y guarda una boleta. Devuelve True si quedó guardada."""
         try:
             encontrada = self.repo.update(boleta_id, form_data)
         except Exception as error:

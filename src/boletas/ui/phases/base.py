@@ -211,9 +211,19 @@ class PhaseSection:
 
     @staticmethod
     def restringir(entry, patron):
-        """Solo deja escribir o pegar en `entry` textos que cumplan `patron` (completo)."""
-        comando = entry.register(lambda propuesto: re.fullmatch(patron, propuesto) is not None)
-        entry.configure(validate="key", validatecommand=(comando, "%P"))
+        """Solo deja escribir o pegar en `entry` textos que cumplan `patron` (completo).
+
+        Solo se revisa lo que se inserta con el teclado (acción "1" de Tk):
+        - Un valor puesto por el programa (cargado de la base de datos, del AD...)
+          se acepta siempre; si Tk lo rechazara, apagaría la validación del campo.
+        - Borrar siempre se permite, para poder corregir un valor viejo que no
+          cumple el patrón.
+        """
+        def permitido(accion, propuesto):
+            return accion != "1" or re.fullmatch(patron, propuesto) is not None
+
+        comando = entry.register(permitido)
+        entry.configure(validate="key", validatecommand=(comando, "%d", "%P"))
         return entry
 
     def field(self, row, col, key, text, hint=None, colspan=1, **kwargs):
@@ -291,7 +301,7 @@ class PhaseSection:
         """Etiqueta + dos campos (horas y minutos) que se guardan juntos como "H:MM" en `vars[key]`.
 
         Al teclear solo se aceptan números. Si las horas o los minutos no son números
-        (p. ej. un valor viejo cargado del Excel), `vars[key]` queda vacío (y la
+        (p. ej. un valor viejo ya guardado), `vars[key]` queda vacío (y la
         validación de obligatorios lo marca). Los minutos de más se pasan a
         horas (0 h 90 min -> "1:30").
         """

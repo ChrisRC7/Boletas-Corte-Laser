@@ -3,7 +3,7 @@
 Organización por capas (separación de responsabilidades):
 
     config       -> constantes y configuración (fases, columnas, opciones...)
-    repository   -> acceso a datos (lectura/escritura del Excel)  [patrón Repository]
+    repository   -> acceso a datos (base de datos SQLite)  [patrón Repository]
     services     -> lógica de negocio reutilizable (precios, detección de fase)
     ui           -> interfaz gráfica (ventana principal y formulario)
 """

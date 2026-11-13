@@ -6,7 +6,7 @@ con `ajustes.validar` y los guarda con `ajustes.guardar` en
 escribe en los widgets a valores de Python.
 
 Los cambios se aplican a las boletas que se abran después de guardar. El
-cambio del archivo de datos (Excel) requiere reiniciar la aplicación.
+cambio del archivo de la base de datos requiere reiniciar la aplicación.
 """
 
 import tkinter as tk
@@ -104,8 +104,9 @@ class ConfigWindow(ctk.CTkToplevel):
                                                           padx=8, pady=(4, 8))
 
     def _pestana_general(self, p, v):
-        self._fila(p, 0, 'EXCEL_FILE', "Archivo de datos", v['EXCEL_FILE'],
-                   "Ruta del Excel de boletas. Si la cambia, reinicie la aplicación.")
+        self._fila(p, 0, 'DB_FILE', "Base de datos", v['DB_FILE'],
+                   "Ruta del archivo SQLite de boletas (puede estar en una carpeta compartida). "
+                   "Si la cambia, reinicie la aplicación.")
         self._fila(p, 2, 'PRECIO_POR_GRAMO', "Precio por gramo (₡)", v['PRECIO_POR_GRAMO'])
         self._fila(p, 4, 'GRAMOS_POR_ROLLO', "Gramos por rollo", v['GRAMOS_POR_ROLLO'],
                    "Material que trae un rollo de filamento (se usa para el orden de impresión).")
@@ -191,7 +192,7 @@ class ConfigWindow(ctk.CTkToplevel):
         c = {nombre: var.get() for nombre, var in self.campos.items()}
         try:
             valores = {
-                'EXCEL_FILE': c['EXCEL_FILE'].strip(),
+                'DB_FILE': c['DB_FILE'].strip().strip('"'),
                 'AD_DOMINIO_CORREO': c['AD_DOMINIO_CORREO'].strip(),
                 'AD_TIMEOUT_SEGUNDOS': int(_numero(c['AD_TIMEOUT_SEGUNDOS'])),
                 'PRECIO_POR_GRAMO': _numero(c['PRECIO_POR_GRAMO']),
@@ -243,7 +244,7 @@ class ConfigWindow(ctk.CTkToplevel):
                                    + "\n".join(f"• {e}" for e in errores), parent=self)
             return
 
-        excel_anterior = config.EXCEL_FILE
+        datos_anterior = config.DB_FILE
         try:
             ajustes.guardar(valores)
         except OSError as error:
@@ -251,8 +252,8 @@ class ConfigWindow(ctk.CTkToplevel):
             return
 
         mensaje = "Configuración guardada. Se aplica a las boletas que abra a partir de ahora."
-        if config.EXCEL_FILE != excel_anterior:
-            mensaje += "\n\nCambió el archivo de datos: reinicie la aplicación para usarlo."
+        if config.DB_FILE != datos_anterior:
+            mensaje += "\n\nCambió la base de datos: reinicie la aplicación para usarlo."
         messagebox.showinfo("Configuración", mensaje, parent=self)
         if self.al_guardar:
             self.al_guardar()

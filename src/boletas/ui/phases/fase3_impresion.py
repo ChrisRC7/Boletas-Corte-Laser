@@ -132,10 +132,15 @@ class Phase3Impresion(PhaseSection):
             boton.configure(state='normal' if compatible or numero == seleccionada else 'disabled')
 
     def problemas(self):
-        """La impresora elegida debe ser del tipo pedido (pudo cambiar en la Revisión)."""
+        """La impresora elegida debe ser del tipo pedido (pudo cambiar en la Revisión).
+
+        Una impresora que ya no está en la Configuración no se puede comprobar:
+        la boleta conserva su número y se puede seguir guardando.
+        """
         numero = self.vars['Impresora_Num'].get().strip()
         tipo = self.vars['Tipo_Impresora'].get().strip()
-        if numero and not catalogo.tipo_compatible(tipo, catalogo.tipo_de_impresora(numero)):
+        if (numero and catalogo.existe_impresora(numero)
+                and not catalogo.tipo_compatible(tipo, catalogo.tipo_de_impresora(numero))):
             return [f"La impresora {numero} no es del tipo pedido en la Revisión ({tipo})."]
         return []
 

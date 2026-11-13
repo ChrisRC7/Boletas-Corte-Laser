@@ -1,7 +1,7 @@
 """Configuración y constantes de la aplicación de boletas.
 
 Centraliza en un único lugar todo lo que define el "qué" del dominio (fases,
-columnas del Excel, opciones de los desplegables, valores por defecto y
+columnas de la tabla, opciones de los desplegables, valores por defecto y
 precio). Así, para cambiar una fase o una opción no hay que tocar la lógica ni
 la interfaz: basta con editar este archivo.
 
@@ -14,8 +14,12 @@ Las consultas derivadas (opciones de uso, colores disponibles...) están en
 """
 
 # --- Persistencia ---------------------------------------------------------
-# Archivo Excel donde se guardan todas las boletas. Es una ruta relativa al
-# directorio de trabajo desde donde se ejecuta la aplicación.
+# Base de datos SQLite donde se guardan todas las boletas. Es una ruta relativa
+# al directorio de trabajo desde donde se ejecuta la aplicación (puede ser una
+# carpeta compartida para que varias PCs usen la misma).
+DB_FILE = "control_impresiones.db"
+# Excel de las versiones anteriores. Solo se lee una vez, para importar sus
+# boletas cuando todavía no existe la base de datos; nunca se modifica.
 EXCEL_FILE = "control_impresiones.xlsx"
 
 # --- Active Directory (solo lectura) --------------------------------------
@@ -101,8 +105,8 @@ USOS = [
 PRIORIDAD_POR_DEFECTO = 4
 
 
-# --- Columnas del Excel ---------------------------------------------------
-# Orden canónico de las columnas con las que se guarda el archivo.
+# --- Columnas de la tabla de boletas --------------------------------------
+# Orden canónico de las columnas (en la base de datos y en el reporte).
 COLUMNAS = [
     'ID Boleta', 'Fase Actual',
     # Fase 1

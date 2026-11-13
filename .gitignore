@@ -14,6 +14,7 @@ dist/
 
 # Datos y configuración locales (contienen datos personales de usuarios)
 *.xlsx
-~boletas_*.xlsx
+*.db
+*.db-journal
 configuracion.json
 configuracion.json.tmp

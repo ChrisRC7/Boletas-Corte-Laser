@@ -13,6 +13,9 @@ Reglas de navegación:
   llegó a ella). Al completar una fase, la siguiente se abre con un clic en su
   barra (equivale a "Siguiente"). Las fases de `config.FASES_SIN_ORDEN`
   (Cancelación) solo exigen la Recepción completa.
+- La Cancelación no desbloquea nada: estando en ella, las demás fases siguen
+  tan bloqueadas como antes, "Anterior" vuelve a la fase más avanzada a la que
+  se había llegado y "Siguiente" termina en la Entrega (no pasa a Cancelación).
 - Volver a una fase anterior no "retrocede" la boleta: al guardar, `Fase Actual`
   es la fase más avanzada a la que se llegó (o la detectada por operadores).
 """
@@ -207,9 +210,20 @@ class BoletaForm(ctk.CTkToplevel):
         if altura > 0:
             canvas.yview_moveto(phase.container.winfo_y() / altura)
 
+    @staticmethod
+    def _sin_orden(index):
+        """True si la fase (p. ej. Cancelación) no forma parte del avance normal."""
+        return config.FASES[index] in config.FASES_SIN_ORDEN
+
     def phase_accessible(self, index):
-        """Se puede abrir si ya se llegó a ella o si las fases previas están completas."""
-        if index <= max(self.current_index(), self._fase_maxima):
+        """Se puede abrir si ya se llegó a ella o si las fases previas están completas.
+
+        Estar en la Cancelación no cuenta como "haber llegado" a las fases
+        anteriores: solo cuenta la fase más avanzada del avance normal.
+        """
+        if self._sin_orden(index):
+            return index == self.current_index() or self.primera_fase_incompleta(index) is None
+        if index <= self._fase_maxima:
             return True
         return self.primera_fase_incompleta(index) is None
 
@@ -270,7 +284,13 @@ class BoletaForm(ctk.CTkToplevel):
     def _on_fase_menu(self, eleccion):
         """Cambio desde el selector: para ir hacia adelante hay que cumplir las fases previas."""
         destino = config.FASES.index(eleccion)
-        if destino > self._fase_confirmada and not self._puede_avanzar(self._fase_confirmada, destino):
+        # Se avanza desde la fase más avanzada alcanzada (no desde la Cancelación,
+        # que si no serviría de atajo para saltarse las fases intermedias).
+        if self._sin_orden(destino):
+            avanza = destino != self._fase_confirmada
+        else:
+            avanza = destino > self._fase_maxima
+        if avanza and not self._puede_avanzar(self._fase_maxima, destino):
             self.vars['Fase Actual'].set(config.FASES[self._fase_confirmada])
             return
         self._on_current_phase_changed()
@@ -300,23 +320,41 @@ class BoletaForm(ctk.CTkToplevel):
             if phase.is_locked():
                 phase.collapse()
             phase.refresh_header()
-        self.prev_button.configure(state='normal' if index > 0 else 'disabled')
-        self.next_button.configure(state='normal' if index < len(config.FASES) - 1 else 'disabled')
+        self.prev_button.configure(state='normal' if self._fase_anterior(index) is not None else 'disabled')
+        self.next_button.configure(state='normal' if self._fase_siguiente(index) is not None else 'disabled')
         self.show_phase(index)
+
+    def _fase_siguiente(self, index):
+        """Fase a la que lleva "Siguiente" (None si no hay): nunca a la Cancelación."""
+        siguiente = index + 1
+        if self._sin_orden(index) or siguiente >= len(config.FASES) or self._sin_orden(siguiente):
+            return None
+        return siguiente
+
+    def _fase_anterior(self, index):
+        """Fase a la que lleva "Anterior" (None si no hay).
+
+        Desde la Cancelación se vuelve a la fase más avanzada a la que se llegó.
+        """
+        if self._sin_orden(index):
+            return self._fase_maxima
+        return index - 1 if index > 0 else None
 
     def _next_phase(self):
         current_index = self.current_index()
+        siguiente = self._fase_siguiente(current_index)
+        if siguiente is None:
+            return
         if not self._validate_phase(current_index):
             self.show_phase(current_index)
             return
-        if current_index < len(config.FASES) - 1:
-            self.phases[current_index].collapse()
-            self.set_current_phase(current_index + 1)
+        self.phases[current_index].collapse()
+        self.set_current_phase(siguiente)
 
     def _previous_phase(self):
-        current_index = self.current_index()
-        if current_index > 0:
-            self.set_current_phase(current_index - 1)
+        anterior = self._fase_anterior(self.current_index())
+        if anterior is not None:
+            self.set_current_phase(anterior)
 
     def _validate_phase(self, phase_index):
         """Valida los campos obligatorios y el formato de fecha/hora de una fase. True si está bien."""
@@ -369,22 +407,30 @@ class BoletaForm(ctk.CTkToplevel):
             if key in self.vars and not self.vars[key].get().strip()
         ]
 
-    def _fase_al_abrir(self, boleta_data):
-        """Fase con la que se abre una boleta guardada.
+    def _fase_alcanzada(self, boleta_data):
+        """Fase más avanzada del avance normal (sin contar Cancelación) de una boleta guardada.
 
-        Normalmente la más avanzada con operador (`PhaseDetector`). Si la fase
-        guardada en `Fase Actual` va más adelante (se pulsó "Siguiente" y se
-        guardó) y las fases previas están completas, se respeta esa.
+        Normalmente la más avanzada con operador. Si la fase guardada en
+        `Fase Actual` va más adelante (se pulsó "Siguiente" y se guardó) y las
+        fases previas están completas, se respeta esa.
         """
-        detectada = config.FASES.index(PhaseDetector.detectar_fase_actual(boleta_data))
+        alcanzada = 0
+        for indice in range(len(config.FASES)):
+            operador = boleta_data.get(f'F{indice + 1}_Operador')
+            if not self._sin_orden(indice) and operador and str(operador).strip():
+                alcanzada = indice
         guardada = str(boleta_data.get('Fase Actual', '') or '')
-        if guardada not in config.FASES or config.FASES.index(guardada) <= detectada:
-            return detectada
-        destino = config.FASES.index(guardada)
-        previas = [0] if guardada in config.FASES_SIN_ORDEN else range(destino)
-        if all(not self._campos_faltantes(i) for i in previas):
-            return destino
-        return detectada
+        if guardada in config.FASES:
+            destino = config.FASES.index(guardada)
+            if (not self._sin_orden(destino) and destino > alcanzada
+                    and all(not self._campos_faltantes(i) for i in range(destino))):
+                alcanzada = destino
+        return alcanzada
+
+    def _fase_al_abrir(self, boleta_data):
+        """Fase con la que se abre una boleta guardada: la Cancelación si está cancelada, o la alcanzada."""
+        detectada = config.FASES.index(PhaseDetector.detectar_fase_actual(boleta_data))
+        return detectada if self._sin_orden(detectada) else self._fase_maxima
 
     # --- Carga / guardado --------------------------------------------------
     def populate_form(self):
@@ -401,6 +447,7 @@ class BoletaForm(ctk.CTkToplevel):
         for phase in self.phases:
             phase.on_populate(boleta_data)
 
+        self._fase_maxima = self._fase_alcanzada(boleta_data)
         self.set_current_phase(self._fase_al_abrir(boleta_data))
         return True
 
@@ -429,7 +476,7 @@ class BoletaForm(ctk.CTkToplevel):
         recepcion = self.phases[0]
         self._cargar_valores(boleta_data, recepcion.keys - {'F1_Fecha', 'F1_Hora'})
         recepcion.on_populate(boleta_data)
-        recepcion._update_part_name()
+        recepcion._update_part_name(forzar=True)
 
     def guardar_cambios(self):
         # La Recepción siempre debe estar completa (si no, se guardarían boletas
@@ -452,7 +499,7 @@ class BoletaForm(ctk.CTkToplevel):
         for phase in self.phases:
             phase.on_collect(form_data)
 
-        # Si no se pudo guardar (p. ej. el Excel está abierto), la ventana sigue
+        # Si no se pudo guardar (p. ej. la base de datos está ocupada), la ventana sigue
         # abierta con los datos para volver a intentarlo.
         if self.boleta_id:
             if not self.parent_app.update_record(self.boleta_id, form_data, parent=self):

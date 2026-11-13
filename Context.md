@@ -3,7 +3,7 @@
 Contexto del proyecto para retomar el trabajo entre sesiones. Las reglas de
 trabajo están en [CLAUDE.md](CLAUDE.md).
 
-_Última revisión: 2026-11-09._
+_Última revisión: 2026-11-13._
 
 ---
 
@@ -29,12 +29,12 @@ _Última revisión: 2026-11-09._
 | 5 | Entrega de Piezas | verificación de cobro, recibido conforme |
 | 6 | Cancelación | motivo de cancelación |
 
-- **La fase «Reimpresión» se eliminó.** Al cargar un Excel con el formato de 7
-  fases, el repositorio lo migra (`config.COLUMNAS_RENOMBRADAS` y
+- **La fase «Reimpresión» se eliminó.** Al importar un Excel con el formato de
+  7 fases, `excel_antiguo.py` lo adapta (`config.COLUMNAS_RENOMBRADAS` y
   `FASES_RENOMBRADAS`): la Cancelación pasa de `F7_*` a `F6_*`, las boletas en
   «6. Reimpresión» pasan a «5. Entrega de Piezas» y los datos de la antigua
-  Reimpresión se conservan en columnas `Reimpresion_Antigua_*` al final del
-  Excel (se descartan si estaban vacías).
+  Reimpresión se conservan en columnas `Reimpresion_Antigua_*` de la base de
+  datos (se descartan si estaban vacías).
 
 - La fase actual se guarda en `Fase Actual`; `PhaseDetector` puede deducirla
   como la fase más avanzada con operador.
@@ -49,48 +49,83 @@ _Última revisión: 2026-11-09._
 - Cantidad de copias solo acepta números; teléfono, dígitos y `+ - ( )`.
 - **Bloqueo de fases:** una fase se abre si las anteriores están completas (o
   si ya se llegó a ella); un clic en su barra la hace fase actual. Cancelación
-  (`FASES_SIN_ORDEN`) solo exige la Recepción. Al guardar, `Fase Actual` =
+  (`FASES_SIN_ORDEN`) solo exige la Recepción y **no desbloquea nada**: estando
+  en ella las demás fases siguen bloqueadas, «Anterior» vuelve a la fase más
+  avanzada alcanzada (`_fase_maxima`) y «Siguiente» termina en la Entrega. Al guardar, `Fase Actual` =
   máx(fase más avanzada alcanzada, fase detectada por operadores), así volver
   atrás no retrocede la boleta. Al abrir se respeta la `Fase Actual` guardada
   si las fases previas están completas.
 - Tiempo de impresión (Revisión): dos campos (horas/minutos) que se guardan
   juntos en `Tiempo_Impresion_HHMM` como `H:MM` (`PhaseSection.duration_field`).
-- Columnas nuevas: `Color_Filamento` (F1) y `Tipo_Impresora` (F2); el
-  repositorio las añade a Excels viejos al cargar.
+- Columnas nuevas de `config.COLUMNAS`: el repositorio las añade a la tabla al
+  arrancar (`ALTER TABLE`), así una base de datos vieja sigue sirviendo.
+- La restricción de teclado (`PhaseSection.restringir`) solo revisa lo que se
+  inserta tecleando: los valores cargados por el programa y los borrados
+  siempre se aceptan (si no, Tk apagaba la validación del campo).
+- El nombre del archivo (`Nombre_Pieza`) solo se regenera cuando cambia el
+  carné; un nombre escrito a mano se respeta.
 
 ## Persistencia actual
 
-- Un único Excel `control_impresiones.xlsx` en el directorio de trabajo.
-- Se carga entero en memoria (DataFrame, todo como `str` salvo `ID Boleta`).
-- Se guarda en el momento al crear, editar o borrar una boleta (no al cerrar).
-  Si falla (p. ej. el Excel abierto en Office), el cambio se deshace también en
-  memoria y la UI lo avisa. La escritura es atómica (temporal + `os.replace`).
-- Las columnas que no están en `config.COLUMNAS` se conservan al final.
-- El ID nuevo es `max(ID) + 1`.
-- **Limitación:** no soporta varias PCs escribiendo a la vez (último que guarda
-  pisa al otro) y falla si el Excel está abierto en Office.
+- Base de datos **SQLite** `control_impresiones.db` (`config.DB_FILE`, editable
+  en ⚙ Configuración) con una sola tabla `boletas`: `ID Boleta` es la clave
+  (entero) y el resto de `config.COLUMNAS` son texto, igual que en el Excel
+  original (True → 'True').
+- `BoletaRepository` abre una conexión por operación y devuelve **listas de
+  diccionarios** (vacíos como ''). Ya no se usa pandas.
+- Cada alta/edición/borrado es una transacción (`BEGIN IMMEDIATE`) que toca solo
+  la fila de esa boleta, y cada consulta lee la base de datos: **dos PCs con la
+  misma base no se pisan** los cambios de boletas distintas. Si otro equipo
+  está escribiendo se espera hasta 10 s; los errores salen como `ErrorDatos`.
+- **Importación del Excel anterior:** si no existe la base de datos y sí
+  `config.EXCEL_FILE`, `excel_antiguo.leer` lo lee (con openpyxl) y se importa
+  en la misma transacción que crea la tabla. El Excel no se toca. Si el Excel
+  o la base de datos están dañados, la app avisa y se cierra sin crear nada.
+- El ID nuevo es `max(ID) + 1` (si se borra la última boleta, su número se
+  reutiliza). Si dos equipos crean la misma a la vez, el segundo recibe un
+  aviso y vuelve a guardar.
+- **Limitaciones:** dos equipos editando *la misma* boleta a la vez: gana el
+  último que guarda. SQLite en una carpeta compartida de red depende de que el
+  servidor de archivos respete los bloqueos; para muchas PCs convendría un
+  servidor (la idea de la Jetson Nano).
+
+## Reporte en Excel (implementado)
+
+- Botón «📊 Exportar reporte» de la ventana principal → `reporte.generar`.
+- `metricas.py` calcula los totales y desgloses; `reporte.py` solo les da
+  forma con openpyxl. Hojas: **Resumen** (8 indicadores + gráficos de barras),
+  **Estadísticas** (tablas por fase, uso, material, color, mes, impresora,
+  carrera, operador), **Boletas** (detalle completo como tabla de Excel, con
+  números y fechas reales), **Usuarios** y **Fallos**.
+- Criterios: estado = Cancelada / Entregada / En proceso; material, horas y
+  monto **no** suman las boletas canceladas; «cobro verificado» = entregadas
+  con la casilla de cobro marcada.
+- Las métricas las elegí yo como punto de partida: **falta confirmar con
+  Aguirre** cuáles quiere (y si quiere filtrar por rango de fechas).
 
 ## Estado del repositorio
 
 - Rama de trabajo: `Chris-Development`; rama principal: `main` (PRs en GitHub,
   `ChrisRC7`).
-- `build/`, `dist/`, `*.spec`, los `.xlsx` y `configuracion.json` están
+- `build/`, `dist/`, `*.spec`, los `.xlsx`, los `.db` y `configuracion.json` están
   ignorados: el `.exe` se distribuye fuera del repositorio y los datos tienen
   información personal de los usuarios. (Antes de esto, `main.exe` y un Excel
   de ejemplo estaban versionados y siguen en el historial de git).
-- Con pandas 3 las columnas leídas con `dtype=str` solo aceptan texto: el
-  repositorio convierte todo a texto al guardar (`_como_texto`).
-- No hay tests automáticos.
+- No hay tests automáticos. Lo probado a mano en esta revisión (scripts
+  temporales, no versionados): importación del Excel viejo, CRUD y búsquedas,
+  escrituras simultáneas, archivos dañados, navegación de fases del formulario
+  y el reporte abierto en Excel.
 
 ## Peticiones pendientes (de "Cambios que quiere Aguirre.md")
 
 1. Base de datos en una **Jetson Nano** en red local (falta router).
-2. Que **dos PCs** puedan escribir sin conflictos de sincronización.
+2. ~~Que **dos PCs** puedan escribir sin conflictos~~ ✅ Hecho con SQLite
+   (ver "Persistencia actual" y sus limitaciones).
 3. Apartado para **notas tipo post-it**.
 4. ~~Autollenar datos a partir del carné~~ ✅ Hecho (ver "Active Directory").
 5. Lista de **cursos por carrera** con desplegable y buscador.
-6. Migrar a **SQLite** y añadir **export de resumen con métricas** (pendiente
-   preguntar a Aguirre qué métricas quiere).
+6. ~~Migrar a **SQLite** y añadir **export de resumen con métricas**~~ ✅ Hecho
+   (falta confirmar con Aguirre qué métricas quiere en el reporte).
 7. ~~Quitar la opción de eliminar fallos~~ ✅ Hecho.
 8. ~~Renombrar Fase 7 "Cancelada" → "Cancelación"~~ ✅ Hecho (el repositorio
    migra los valores viejos al cargar, vía `config.FASES_RENOMBRADAS`).
