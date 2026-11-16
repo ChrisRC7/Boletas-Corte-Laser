@@ -85,21 +85,21 @@ class App(ctk.CTk):
         ctk.CTkLabel(banner, text="CONTROL DE IMPRESIONES", font=theme.font(22),
                      text_color=theme.TEXT).pack(side="left", pady=12)
 
-        ctk.CTkButton(banner, text="✚  Añadir", width=110, font=theme.font(13, "bold"),
-                      fg_color=theme.SUCCESS, hover_color=theme.darken(theme.SUCCESS),
-                      command=self.open_new_boleta_window).pack(side="right", padx=(6, 20))
-        ctk.CTkButton(banner, text="⧉  Copiar", width=110, font=theme.font(13, "bold"),
-                      fg_color=theme.PHASE_COLORS[0], hover_color=theme.darken(theme.PHASE_COLORS[0]),
-                      command=self.copy_selected_boleta).pack(side="right", padx=6)
         ctk.CTkButton(banner, text="🗑  Borrar", width=110, font=theme.font(13, "bold"),
                       fg_color=theme.DANGER, hover_color=theme.darken(theme.DANGER),
-                      command=self.delete_selected_boleta).pack(side="right", padx=6)
+                      command=self.delete_selected_boleta).pack(side="right", padx=(6, 20))
         ctk.CTkButton(banner, text="📋  Orden de impresión", width=170, font=theme.font(13, "bold"),
                       fg_color=theme.PHASE_COLORS[2], hover_color=theme.darken(theme.PHASE_COLORS[2]),
                       command=self.open_plan_window).pack(side="right", padx=6)
         ctk.CTkButton(banner, text="⚙  Configuración", width=150, font=theme.font(13, "bold"),
                       fg_color=theme.NEUTRAL, hover_color=theme.darken(theme.NEUTRAL),
                       command=self.open_config_window).pack(side="right", padx=6)
+        ctk.CTkButton(banner, text="⧉  Copiar", width=110, font=theme.font(13, "bold"),
+                      fg_color=theme.PHASE_COLORS[0], hover_color=theme.darken(theme.PHASE_COLORS[0]),
+                      command=self.copy_selected_boleta).pack(side="right", padx=6)
+        ctk.CTkButton(banner, text="✚  Añadir", width=110, font=theme.font(13, "bold"),
+                      fg_color=theme.SUCCESS, hover_color=theme.darken(theme.SUCCESS),
+                      command=self.open_new_boleta_window).pack(side="right", padx=(6, 20))
 
         # Búsqueda
         search_frame = ctk.CTkFrame(self, fg_color="transparent")

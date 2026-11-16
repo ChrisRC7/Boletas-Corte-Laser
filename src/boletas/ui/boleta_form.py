@@ -126,7 +126,7 @@ class BoletaForm(ctk.CTkToplevel):
 
     def _build_controls(self):
         controls = ctk.CTkFrame(self, fg_color=theme.PAPER, corner_radius=0)
-        controls.pack(side="bottom", fill="x")
+        controls.pack(side="top", fill="x")
 
         neutral = dict(fg_color=theme.NEUTRAL, hover_color=theme.darken(theme.NEUTRAL))
 
